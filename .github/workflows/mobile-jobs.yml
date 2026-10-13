@@ -1,0 +1,23 @@
+name: Cookies scheduled jobs
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+permissions: {}
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Run backups, reminders and Azora sync
+        env:
+          COOKIES_API_URL: ${{ secrets.COOKIES_API_URL }}
+          COOKIES_CRON_SECRET: ${{ secrets.COOKIES_CRON_SECRET }}
+        run: |
+          if [ -z "$COOKIES_API_URL" ] || [ -z "$COOKIES_CRON_SECRET" ]; then
+            echo "Set COOKIES_API_URL and COOKIES_CRON_SECRET to enable scheduled jobs."
+            exit 0
+          fi
+          curl --fail --silent --show-error --max-time 240 \
+            -H "Authorization: Bearer $COOKIES_CRON_SECRET" \
+            "$COOKIES_API_URL/api/mobile/jobs" > /dev/null

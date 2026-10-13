@@ -1,0 +1,162 @@
+name: Build APK and unsigned IPA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/build-mobile.yml'
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Build target'
+        type: choice
+        options: [all, android, ios]
+        default: all
+      api_url:
+        description: 'Optional public HTTPS API URL (uses repository variable COOKIES_API_URL otherwise)'
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXPO_PUBLIC_API_URL: ${{ inputs.api_url || vars.COOKIES_API_URL || '' }}
+  CI: '1'
+  EXPO_NO_TELEMETRY: '1'
+
+jobs:
+  verify:
+    name: Typecheck and domain tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+        working-directory: mobile
+      - run: npm run typecheck
+        working-directory: mobile
+      - run: npm test
+        working-directory: mobile
+
+  android:
+    name: Android release APK
+    needs: verify
+    if: github.event_name == 'push' || inputs.platform == 'all' || inputs.platform == 'android'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: npm ci
+      - name: Generate Android project
+        run: npx expo prebuild --platform android --no-install
+      - name: Build installable release APK
+        run: |
+          chmod +x android/gradlew
+          cd android
+          ./gradlew assembleRelease --no-daemon --stacktrace -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
+      - name: Prepare APK
+        run: |
+          mkdir -p build
+          cp android/app/build/outputs/apk/release/app-release.apk build/Cookies.apk
+          test -s build/Cookies.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cookies-android-apk
+          path: mobile/build/Cookies.apk
+          if-no-files-found: error
+          retention-days: 30
+
+  ios:
+    name: iOS unsigned device IPA
+    needs: verify
+    if: github.event_name == 'push' || inputs.platform == 'all' || inputs.platform == 'ios'
+    runs-on: macos-15
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - name: Select latest installed stable Xcode
+        run: |
+          python3 - <<'PYCODE'
+          import glob, os, re
+          candidates = [p for p in glob.glob('/Applications/Xcode*.app') if 'beta' not in p.lower()]
+          def version(path):
+              return tuple(int(v) for v in re.findall(r'\d+', os.path.basename(path))) or (0,)
+          selected = max(candidates, key=version)
+          with open(os.environ['GITHUB_ENV'], 'a') as env:
+              env.write(f'DEVELOPER_DIR={selected}/Contents/Developer\n')
+          print(f'Using {selected}')
+          PYCODE
+      - name: Install CocoaPods
+        run: gem install cocoapods -v 1.16.2 --no-document
+      - run: npm ci
+      - name: Generate iOS project
+        run: npx expo prebuild --platform ios --no-install
+      - name: Install native pods
+        run: pod install --project-directory=ios
+      - name: Archive for physical iPhone without signing
+        run: |
+          xcodebuild -version
+          xcodebuild \
+            -workspace ios/Cookies.xcworkspace \
+            -scheme Cookies \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/Cookies.xcarchive \
+            archive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY='' \
+            DEVELOPMENT_TEAM=''
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p build/Payload
+          cp -R build/Cookies.xcarchive/Products/Applications/Cookies.app build/Payload/
+          find build/Payload -type d \( -name '*.app' -o -name '*.appex' -o -name '*.framework' \) -print0 |
+            while IFS= read -r -d '' bundle; do
+              codesign --remove-signature "$bundle" 2>/dev/null || true
+            done
+          test -f build/Payload/Cookies.app/Info.plist
+          cd build
+          zip -qry Cookies-unsigned.ipa Payload
+          test -s Cookies-unsigned.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cookies-ios-unsigned-ipa
+          path: mobile/build/Cookies-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 30

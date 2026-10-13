@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "Cookies",
+    "slug": "cookies-team",
+    "scheme": "cookiestracker",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "icon": "./assets/icon.png",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "team.cookies.tracker"
+    },
+    "android": {
+      "package": "team.cookies.tracker",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#08090D"
+      }
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-font",
+      "expo-web-browser",
+      "expo-sharing",
+      "expo-notifications"
+    ],
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}

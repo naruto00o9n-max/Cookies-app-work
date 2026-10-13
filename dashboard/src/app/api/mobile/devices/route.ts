@@ -1,0 +1,3 @@
+import {json,requireAuth,isResponse} from '@/lib/api';
+import {nativeDb} from '@/lib/native-service';
+export async function POST(req:Request){const user=await requireAuth();if(isResponse(user))return user;const {token,remove}=await req.json();if(typeof token!=='string'||!/^Expo(nent)?PushToken\[[A-Za-z0-9_-]+\]$/.test(token))return json({error:'رمز جهاز غير صالح'},400);const db=nativeDb();if(!db)return json({error:'الإشعارات تحتاج قاعدة الفريق'},400);if(remove)await db.collection('mobile_devices').deleteOne({token,userId:user.id});else await db.collection('mobile_devices').updateOne({token},{$set:{userId:user.id,token,updated_at:new Date().toISOString()}},{upsert:true});return json({ok:true});}
