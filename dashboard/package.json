@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000",
-    "build": "next build && mkdir -p .next/standalone/dashboard/.next && cp -r .next/static .next/standalone/dashboard/.next/ && cp -r public .next/standalone/dashboard/",
+    "build": "node scripts/check-discord.mjs && next build && mkdir -p .next/standalone/dashboard/.next && cp -r .next/static .next/standalone/dashboard/.next/ && cp -r public .next/standalone/dashboard/",
     "start": "NODE_ENV=production node .next/standalone/dashboard/server.js",
     "lint": "eslint ."
   },
