@@ -6,6 +6,8 @@ on:
     paths:
       - 'mobile/**'
       - '.github/workflows/build-mobile.yml'
+      - 'scripts/firebase-files.mjs'
+      - 'scripts/firebase-project.json'
   workflow_dispatch:
     inputs:
       platform:
@@ -20,6 +22,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
   group: mobile-build-${{ github.ref }}
@@ -71,7 +74,19 @@ jobs:
           distribution: temurin
           java-version: '17'
       - run: npm ci
-      - name: Configure Firebase when provided
+      - id: google
+        name: Authenticate this repository with Firebase
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/48488268326/locations/global/workloadIdentityPools/cookies-github/providers/github
+          service_account: cookies-build@cookies-team-zeus313.iam.gserviceaccount.com
+          token_format: access_token
+          create_credentials_file: false
+      - name: Configure Firebase automatically
+        env:
+          GOOGLE_BUILD_ACCESS_TOKEN: ${{ steps.google.outputs.access_token }}
+        run: node ../scripts/firebase-files.mjs google-services.json
+      - name: Override Firebase configuration when explicitly provided
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
@@ -80,6 +95,10 @@ jobs:
           value = os.environ.get('GOOGLE_SERVICES_JSON', '')
           if value:
               parsed = json.loads(value)
+              with open('../scripts/firebase-project.json') as project_file:
+                  expected_project = json.load(project_file)['projectId']
+              if parsed.get('project_info', {}).get('project_id') != expected_project:
+                  raise SystemExit('GOOGLE_SERVICES_JSON belongs to a different Firebase project.')
               clients = parsed.get('client', [])
               packages = [c.get('client_info', {}).get('android_client_info', {}).get('package_name') for c in clients]
               if 'team.cookies.tracker' not in packages:

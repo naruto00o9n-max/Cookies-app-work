@@ -1,5 +1,12 @@
 name: Configure Android notifications
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/setup-fcm.yml'
+      - 'scripts/setup-fcm.mjs'
+      - 'scripts/firebase-files.mjs'
+      - 'scripts/firebase-project.json'
   workflow_dispatch:
     inputs:
       rebuild_android:
@@ -9,6 +16,7 @@ on:
 permissions:
   contents: read
   actions: write
+  id-token: write
 concurrency:
   group: configure-android-notifications
   cancel-in-progress: false
@@ -23,28 +31,29 @@ jobs:
           node-version: '22'
       - name: Test credential validation and assignment
         run: node --test scripts/tests/setup-fcm.test.mjs
-      - name: Verify project and secrets are present
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-        run: |
-          node --input-type=module - <<'JS'
-          for (const key of ['EXPO_TOKEN', 'GOOGLE_SERVICES_JSON', 'FIREBASE_SERVICE_ACCOUNT']) {
-            if (!process.env[key]) throw new Error(`Add the ${key} repository secret before running this workflow.`);
-          }
-          JS
       - name: Install pinned Expo credential tooling
         run: npm install --prefix "$RUNNER_TEMP/cookies-eas" --no-audit --no-fund eas-cli@24.13.0
+      - id: google
+        name: Authenticate this repository with Firebase
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/48488268326/locations/global/workloadIdentityPools/cookies-github/providers/github
+          service_account: cookies-build@cookies-team-zeus313.iam.gserviceaccount.com
+          token_format: access_token
+          create_credentials_file: false
+      - name: Download the real Firebase Android configuration
+        env:
+          GOOGLE_BUILD_ACCESS_TOKEN: ${{ steps.google.outputs.access_token }}
+        run: node scripts/firebase-files.mjs "$RUNNER_TEMP/google-services.json"
       - name: Assign FCM v1 to the correct Expo Android app
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          GOOGLE_BUILD_ACCESS_TOKEN: ${{ steps.google.outputs.access_token }}
+          GOOGLE_SERVICES_FILE: ${{ runner.temp }}/google-services.json
           EAS_CLI_ROOT: ${{ runner.temp }}/cookies-eas/node_modules/eas-cli
         run: node scripts/setup-fcm.mjs
       - name: Build Android with Firebase SDK configuration
-        if: inputs.rebuild_android
+        if: github.event_name == 'workflow_dispatch' && inputs.rebuild_android
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run build-mobile.yml --ref main -f platform=android

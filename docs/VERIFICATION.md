@@ -14,6 +14,6 @@
 
 تم إنشاء Firebase `cookies-team-zeus313` وتطبيق Android الحقيقي وFCM v1 واعتماد `cookies-push`. تحقق ملفا الإعداد الحقيقيان من تطابق الحزمة والمشروع. نجح الاتصال بـ FCM باعتماد الخدمة في اختبار validate_only، مع رد INVALID_ARGUMENT لرمز جهاز غير حقيقي؛ لم يُرسل إشعار إلى عضو.
 
-إسناد FCM إلى Expo ينتظر وضع ملفّي الإعداد في GitHub Secrets وتشغيل Configure Android notifications. الوصول الفعلي للإشعارات إلى أجهزة Android وiPad لم يُثبت بعد؛ iPad يحتاج أيضًا APNs وتوقيعًا يدعم الاستحقاق.
+إسناد FCM إلى Expo وتنزيل إعداد Android أصبحا عبر GitHub Actions واتصال Google Workload Identity Federation المقيد بالمستودع ومالكه والفرع وملفّي workflow. لا حاجة إلى إضافة السرّين يدويًا. نجاح الإسناد والبناء الجديد يُؤخذ من نتيجة Actions التالية. الوصول الفعلي للإشعارات إلى أجهزة Android وiPad لم يُثبت بعد؛ iPad يحتاج أيضًا APNs وتوقيعًا يدعم الاستحقاق.
 
-بناء ملفات الهاتف للإصدار 1.3: https://github.com/naruto00o9n-max/Cookies-app-work/actions/runs/38421483485 . نتائج اكتمال APK وIPA تؤخذ من التشغيل نفسه. البناء الحالي يسبق إضافة إعداد Firebase إلى أسرار GitHub؛ Action إعداد FCM يبني APK جديدًا بهذه الإعدادات.
+بناء ملفات الهاتف للإصدار 1.3: https://github.com/naruto00o9n-max/Cookies-app-work/actions/runs/38421483485 . نتائج اكتمال APK وIPA تؤخذ من التشغيل نفسه. البناء المذكور يسبق ربط إعداد Firebase تلقائيًا؛ يُعاد بناء APK بهذه الإعدادات بعد نشر مسار Google الجديد.

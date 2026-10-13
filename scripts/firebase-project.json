@@ -1,0 +1,7 @@
+{
+  "projectId": "cookies-team-zeus313",
+  "androidAppId": "1:48488268326:android:da063e40dcdee4b9d91ce7",
+  "workloadIdentityProvider": "projects/48488268326/locations/global/workloadIdentityPools/cookies-github/providers/github",
+  "buildServiceAccount": "cookies-build@cookies-team-zeus313.iam.gserviceaccount.com",
+  "pushServiceAccount": "cookies-push@cookies-team-zeus313.iam.gserviceaccount.com"
+}
