@@ -7,6 +7,7 @@ on:
         description: 'Your Expo account name (without @), which will own the Cookies project'
         type: string
         required: true
+        default: zeus313
 
 permissions:
   contents: write
