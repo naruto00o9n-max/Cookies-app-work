@@ -1,0 +1,50 @@
+name: Configure Android notifications
+on:
+  workflow_dispatch:
+    inputs:
+      rebuild_android:
+        description: Build a new Android APK after configuring notifications
+        type: boolean
+        default: true
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: configure-android-notifications
+  cancel-in-progress: false
+jobs:
+  configure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test credential validation and assignment
+        run: node --test scripts/tests/setup-fcm.test.mjs
+      - name: Verify project and secrets are present
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          node --input-type=module - <<'JS'
+          for (const key of ['EXPO_TOKEN', 'GOOGLE_SERVICES_JSON', 'FIREBASE_SERVICE_ACCOUNT']) {
+            if (!process.env[key]) throw new Error(`Add the ${key} repository secret before running this workflow.`);
+          }
+          JS
+      - name: Install pinned Expo credential tooling
+        run: npm install --prefix "$RUNNER_TEMP/cookies-eas" --no-audit --no-fund eas-cli@24.13.0
+      - name: Assign FCM v1 to the correct Expo Android app
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          EAS_CLI_ROOT: ${{ runner.temp }}/cookies-eas/node_modules/eas-cli
+        run: node scripts/setup-fcm.mjs
+      - name: Build Android with Firebase SDK configuration
+        if: inputs.rebuild_android
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run build-mobile.yml --ref main -f platform=android
