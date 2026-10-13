@@ -19,3 +19,4 @@ npm start
 - [تشغيل وربط تطبيق الهاتف](mobile/README.md)
 - [نقل الأوامر والبيانات والمهام الدورية](docs/MOBILE-MIGRATION.md)
 - [بناء APK وIPA](docs/GITHUB-BUILDS.md)
+- [إعداد Vercel والأسرار يدويًا](docs/VERCEL-SETUP.md)
