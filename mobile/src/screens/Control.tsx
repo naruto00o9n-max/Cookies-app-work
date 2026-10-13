@@ -1,3 +1,6 @@
+import { GlassDialogHost } from "../components/GlassDialogHost";
+import { RegistrationSelectionSheet } from "../components/RegistrationSelectionSheet";
+import { useRegistrationPreferences } from "../lib/use-registration-preferences";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -333,42 +336,47 @@ function Sheet({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        style={local.modalBackdrop}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <Pressable
-          style={StyleSheet.absoluteFill}
-          accessibilityLabel="إغلاق النافذة"
-          onPress={onClose}
-        />
-        <View
-          style={[local.sheet, { paddingBottom: Math.max(insets.bottom, 18) }]}
+      <GlassDialogHost active={visible} root={false}>
+        <KeyboardAvoidingView
+          style={local.modalBackdrop}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            accessibilityLabel="إغلاق النافذة"
+            onPress={onClose}
+          />
           <View
             style={[
-              styles.row,
-              { justifyContent: "space-between", marginBottom: 18 },
+              local.sheet,
+              { paddingBottom: Math.max(insets.bottom, 18) },
             ]}
           >
-            <Heading size={21}>{title}</Heading>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="إغلاق"
-              onPress={onClose}
-              hitSlop={14}
+            <View
+              style={[
+                styles.row,
+                { justifyContent: "space-between", marginBottom: 18 },
+              ]}
             >
-              <Icon name="close-outline" />
-            </Pressable>
+              <Heading size={21}>{title}</Heading>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="إغلاق"
+                onPress={onClose}
+                hitSlop={14}
+              >
+                <Icon name="close-outline" />
+              </Pressable>
+            </View>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ gap: 16, paddingBottom: 24 }}
+            >
+              {children}
+            </ScrollView>
           </View>
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ gap: 16, paddingBottom: 24 }}
-          >
-            {children}
-          </ScrollView>
-        </View>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </GlassDialogHost>
     </Modal>
   );
 }
@@ -385,77 +393,55 @@ function Picker({
   onChange: (value: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const [query, setQuery] = useState("");
-  const [limit, setLimit] = useState(12);
-  const filtered = items.filter((item) => match(item.label, query));
+  const { snapshot, user } = useTeam();
+  const { preferences, remember } = useRegistrationPreferences(user?.id || "");
+  const workPicker = label.includes("العمل");
+  const options = items.map((item) => {
+    const work = workPicker
+      ? snapshot?.works.find((w) => w.name === item.value)
+      : undefined;
+    const member = !workPicker
+      ? snapshot?.members.find((m) => m.id === item.value)
+      : undefined;
+    return {
+      ...item,
+      image: work?.azora?.cover || member?.avatar,
+      cover: !!work,
+      recent: !!work && preferences.works.includes(work.name),
+    };
+  });
+  if (workPicker)
+    options.sort((a, b) => {
+      const rank = (v: string) => {
+        if (!v) return -1;
+        const i = preferences.works.indexOf(v);
+        return i < 0 ? 999 : i;
+      };
+      return rank(a.value) - rank(b.value);
+    });
+  const selected = options.find((item) => item.value === value);
   return (
     <View style={{ gap: 8 }}>
       <Label dim>{label}</Label>
-      <Pressable
-        style={local.picker}
-        accessibilityRole="button"
-        accessibilityLabel={label}
-        accessibilityState={{ expanded }}
-        onPress={() => setExpanded(!expanded)}
-      >
-        <Label style={{ flex: 1 }}>
-          {items.find((item) => item.value === value)?.label || "اختر…"}
-        </Label>
-        <Icon
-          name={expanded ? "chevron-up-outline" : "chevron-down-outline"}
-          size={17}
-        />
-      </Pressable>
+      <Row
+        title={selected?.label || "اختر…"}
+        image={selected?.image}
+        cover={selected?.cover}
+        icon={workPicker ? "albums-outline" : "search-outline"}
+        onPress={() => setExpanded(true)}
+      />
       {expanded && (
-        <Glass style={{ padding: 12 }}>
-          <Search
-            value={query}
-            onChange={(text) => {
-              setQuery(text);
-              setLimit(12);
-            }}
-            placeholder={`ابحث في ${label}`}
-          />
-          {filtered.slice(0, limit).map((item) => (
-            <Pressable
-              key={item.value}
-              accessibilityRole="button"
-              accessibilityState={{ selected: item.value === value }}
-              style={[
-                local.option,
-                item.value === value && {
-                  backgroundColor: "rgba(232,199,124,.08)",
-                },
-              ]}
-              onPress={() => {
-                onChange(item.value);
-                setExpanded(false);
-                setQuery("");
-              }}
-            >
-              <Label style={{ flex: 1 }}>{item.label}</Label>
-              {item.value === value && (
-                <Icon name="checkmark-outline" size={18} />
-              )}
-            </Pressable>
-          ))}
-          {filtered.length > limit && (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setLimit(limit + 30)}
-              style={{ padding: 12 }}
-            >
-              <Label size={12} style={{ color: colors.gold }}>
-                عرض المزيد ({filtered.length - limit})
-              </Label>
-            </Pressable>
-          )}
-          {!filtered.length && (
-            <Label dim size={12}>
-              لا توجد نتيجة لهذا البحث.
-            </Label>
-          )}
-        </Glass>
+        <RegistrationSelectionSheet
+          title={label}
+          hint="ابحث بالاسم ثم اختر من القائمة."
+          items={options}
+          value={value}
+          onSelect={(next) => {
+            onChange(next);
+            if (workPicker && next) remember(next);
+          }}
+          onClose={() => setExpanded(false)}
+        />
       )}
     </View>
   );

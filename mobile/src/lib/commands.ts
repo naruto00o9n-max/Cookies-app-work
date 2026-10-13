@@ -1,3 +1,4 @@
+import { findWork, workKey } from "./work-lookup";
 import {
   parseChapters,
   priceOf,
@@ -56,7 +57,7 @@ export function applyCommand(
         s,
         target,
         actor.id,
-        text(p, "work"),
+        String(p.work ?? ""),
         text(p, "chapters"),
         text(p, "types"),
         text(p, "notes"),
@@ -85,9 +86,7 @@ export function applyCommand(
         .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
       const e = entries[0];
       if (!e) throw new Error("لا توجد سجلات لتعديلها هذا الشهر");
-      const w = s.works.find(
-        (w) => w.name === (text(p, "work") || e.work_name),
-      );
+      const w = findWork(s.works, String(p.work || e.work_name));
       if (
         !w ||
         w.isolated ||
@@ -164,7 +163,8 @@ export function applyCommand(
       const target = text(p, "userId") || entry.userId,
         person = s.members.find((m) => m.id === target);
       if (!person) throw new Error("العضو غير موجود");
-      const work = text(p, "work") || entry.work_name,
+      const requestedWork = String(p.work || entry.work_name),
+        work = findWork(s.works, requestedWork)?.name || requestedWork,
         type = text(p, "types") || entry.work_type;
       const chapter = text(p, "chapter") || entry.chapter;
       const selectedChapters = parseChapters(chapter);
@@ -178,7 +178,7 @@ export function applyCommand(
           work !== entry.work_name ||
           type !== entry.work_type ||
           canonical !== String(Number(entry.chapter));
-      const selected = s.works.find((w) => w.name === work);
+      const selected = findWork(s.works, work);
       if (changed) {
         if (!selected || selected.isolated || selected.active === false)
           throw new Error("العمل غير متاح للتعديل");
@@ -216,7 +216,7 @@ export function applyCommand(
     }
     case "addWork": {
       const name = text(p, "name");
-      if (!name || s.works.some((w) => w.name === name))
+      if (!name || s.works.some((w) => workKey(w.name) === workKey(name)))
         throw new Error("اسم العمل فارغ أو موجود مسبقًا");
       s.works.push({
         name,
@@ -226,11 +226,13 @@ export function applyCommand(
       break;
     }
     case "editWork": {
-      const w = s.works.find((w) => w.name === text(p, "name"));
+      const w = findWork(s.works, String(p.name ?? ""));
       if (!w) throw new Error("العمل غير موجود");
       const newName = text(p, "newName");
       if (newName && newName !== w.name) {
-        if (s.works.some((x) => x.name === newName))
+        if (
+          s.works.some((x) => x !== w && workKey(x.name) === workKey(newName))
+        )
           throw new Error("الاسم مستخدم");
         s.records.forEach((e) => {
           if (e.work_name === w.name) e.work_name = newName;
@@ -244,7 +246,7 @@ export function applyCommand(
       break;
     }
     case "deleteWork": {
-      const w = s.works.find((w) => w.name === text(p, "name"));
+      const w = findWork(s.works, String(p.name ?? ""));
       if (!w || w.isolated) throw new Error("العمل غير موجود أو معزول");
       s.works = s.works.filter((x) => x !== w);
       break;
@@ -261,7 +263,7 @@ export function applyCommand(
       break;
     }
     case "customPrice": {
-      const w = s.works.find((w) => w.name === text(p, "work")),
+      const w = findWork(s.works, String(p.work ?? "")),
         name = text(p, "name");
       if (!w || !name) throw new Error("العمل والتخصص مطلوبان");
       w.custom_prices ||= {};
@@ -270,7 +272,7 @@ export function applyCommand(
       break;
     }
     case "removeCustom": {
-      const w = s.works.find((w) => w.name === text(p, "work")),
+      const w = findWork(s.works, String(p.work ?? "")),
         name = text(p, "name");
       if (!w?.custom_prices || !(name in w.custom_prices))
         throw new Error("التخصيص غير موجود");
@@ -281,23 +283,29 @@ export function applyCommand(
       break;
     }
     case "azoraLink": {
-      const w = s.works.find((w) => w.name === text(p, "work")),
+      const w = findWork(s.works, String(p.work ?? "")),
         slug = text(p, "slug");
       if (!w || !/^[a-zA-Z0-9_-]{1,200}$/.test(slug))
         throw new Error("العمل أو سلاغ أزورا غير صالح");
       if (s.works.some((x) => x !== w && x.azora?.slug === slug))
         throw new Error("هذا العمل مرتبط بالفعل");
-      w.azora = { slug };
+      if (w.azora?.slug)
+        throw new Error("فك الربط الحالي أولًا قبل اختيار عمل آخر");
+      w.azora = {
+        slug,
+        linked_by: actor.id,
+        linked_at: new Date().toISOString(),
+      };
       break;
     }
     case "azoraUnlink": {
-      const w = s.works.find((w) => w.name === text(p, "work"));
+      const w = findWork(s.works, String(p.work ?? ""));
       if (!w) throw new Error("العمل غير موجود");
       delete w.azora;
       break;
     }
     case "clearCustom": {
-      const w = s.works.find((w) => w.name === text(p, "work"));
+      const w = findWork(s.works, String(p.work ?? ""));
       if (!w) throw new Error("العمل غير موجود");
       delete w.custom_prices;
       break;

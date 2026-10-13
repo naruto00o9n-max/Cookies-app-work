@@ -22,16 +22,37 @@ export async function request<T>(
   if (!server) throw new Error("لم يتم ربط خدمة الفريق بعد");
   if (!__DEV__ && !server.startsWith("https://"))
     throw new Error("رابط الخدمة يجب أن يستخدم HTTPS");
-  const response = await fetch(server + path, {
-    method: body === undefined ? "GET" : "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
-    signal: AbortSignal.timeout(20000),
-  });
-  const data = await response.json();
+  let response: Response;
+  try {
+    response = await fetch(server + path, {
+      method: body === undefined ? "GET" : "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: AbortSignal.timeout(20000),
+    });
+  } catch (e) {
+    const timedOut =
+      e instanceof Error &&
+      /abort|cancel|timeout/i.test(e.name + " " + e.message);
+    throw new ApiError(
+      timedOut
+        ? "استغرق الاتصال وقتًا طويلًا. حاول مجددًا أو حدّث البيانات"
+        : "تعذر الوصول لخدمة الفريق. تحقق من اتصالك وحاول مجددًا",
+      0,
+    );
+  }
+  let data: any;
+  try {
+    data = await response.json();
+  } catch {
+    throw new ApiError(
+      "وصل رد غير صالح من خدمة الفريق. حاول لاحقًا",
+      response.status,
+    );
+  }
   if (!response.ok)
     throw new ApiError(data.error || "تعذر الاتصال بالفريق", response.status);
   return data;

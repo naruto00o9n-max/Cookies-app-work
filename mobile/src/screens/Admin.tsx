@@ -1,3 +1,4 @@
+import { WorkPicker } from "../components/WorkPicker";
 import { Alert } from "../lib/alerts";
 import React, { useState } from "react";
 import { View, Switch } from "react-native";
@@ -178,7 +179,6 @@ export function AdminForm({ route }: { route: any }) {
       { key: "name", label: "اسم الشهر" },
     ],
     editLast: [
-      { key: "work", label: "العمل · اتركه فارغًا للإبقاء" },
       { key: "chapter", label: "رقم الفصل · اختياري", number: true },
       { key: "types", label: "التخصص · اختياري" },
       { key: "notes", label: "الملاحظات" },
@@ -302,8 +302,8 @@ export function AdminForm({ route }: { route: any }) {
           {kind === "customPrice" && (
             <>
               <Label dim>العمل</Label>
-              <Chips
-                items={s.works.map((w) => ({ label: w.name, value: w.name }))}
+              <WorkPicker
+                works={s.works}
                 value={values.work}
                 onSelect={(v) => set("work", v)}
               />
@@ -316,6 +316,14 @@ export function AdminForm({ route }: { route: any }) {
                 onSelect={(v) => set("name", v)}
               />
             </>
+          )}
+          {kind === "editLast" && (
+            <WorkPicker
+              works={s.works.filter((w) => !w.isolated && w.active !== false)}
+              value={values.work || ""}
+              optional
+              onSelect={(v) => set("work", v)}
+            />
           )}
           {(fields[kind] || []).map((f) => (
             <Field

@@ -80,6 +80,10 @@ jobs:
           value = os.environ.get('GOOGLE_SERVICES_JSON', '')
           if value:
               parsed = json.loads(value)
+              clients = parsed.get('client', [])
+              packages = [c.get('client_info', {}).get('android_client_info', {}).get('package_name') for c in clients]
+              if 'team.cookies.tracker' not in packages:
+                  raise SystemExit('GOOGLE_SERVICES_JSON must be the Android SDK file for team.cookies.tracker; do not use a service account private key here.')
               with open('google-services.json', 'w') as output:
                   json.dump(parsed, output)
           PYCODE

@@ -1,4 +1,5 @@
 import React from "react";
+import { GlassDialogHost } from "./src/components/GlassDialogHost";
 import * as Notifications from "expo-notifications";
 import { NotificationCenter } from "./src/components/NotificationCenter";
 import { View, ActivityIndicator, Platform } from "react-native";
@@ -31,7 +32,12 @@ import {
 } from "./src/screens/More";
 import { Control, ControlSection } from "./src/screens/Control";
 import { Specialties, AdminForm } from "./src/screens/Admin";
-import { Azora } from "./src/screens/Azora";
+import {
+  Azora,
+  AzoraLink,
+  AzoraLinked,
+  AzoraSettings,
+} from "./src/screens/Azora";
 const notificationNav = createNavigationContainerRef<any>();
 const Stack = createNativeStackNavigator(),
   Tabs = createBottomTabNavigator();
@@ -228,6 +234,21 @@ function Screens() {
           options={{ title: "مركز أزورا" }}
         />
         <Stack.Screen
+          name="AzoraLink"
+          component={AzoraLink}
+          options={{ title: "ربط عمل بأزورا" }}
+        />
+        <Stack.Screen
+          name="AzoraLinked"
+          component={AzoraLinked}
+          options={{ title: "الأعمال المرتبطة" }}
+        />
+        <Stack.Screen
+          name="AzoraSettings"
+          component={AzoraSettings}
+          options={{ title: "إعدادات أزورا" }}
+        />
+        <Stack.Screen
           name="AdminForm"
           component={AdminForm}
           options={{ title: "إدارة المساحة", presentation: "modal" }}
@@ -254,10 +275,12 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <TeamProvider>
-          <NotificationCenter>
-            <StatusBar style="light" />
-            <Screens />
-          </NotificationCenter>
+          <GlassDialogHost>
+            <NotificationCenter>
+              <StatusBar style="light" />
+              <Screens />
+            </NotificationCenter>
+          </GlassDialogHost>
         </TeamProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

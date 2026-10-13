@@ -19,6 +19,10 @@ export type Work = {
   custom_prices?: Record<string, number>;
   azora?: {
     slug: string;
+    linked_by?: string;
+    linked_at?: string;
+    post_id?: number;
+    title_en?: string;
     cover?: string;
     title?: string;
     description?: string;

@@ -177,19 +177,22 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
       editing.current = false;
     }
   };
-  const call = async <T,>(path: string, body?: unknown): Promise<T> => {
-    if (!token.current)
-      throw new Error("هذا القسم يحتاج اتصالًا فعليًا ببيانات الفريق");
-    const result = await request<T>(path, token.current, body);
-    if (
-      path === "/api/mobile/devices" &&
-      body &&
-      typeof body === "object" &&
-      "token" in body
-    )
-      device.current = String(body.token);
-    return result;
-  };
+  const call = useCallback(
+    async <T,>(path: string, body?: unknown): Promise<T> => {
+      if (!token.current)
+        throw new Error("هذا القسم يحتاج اتصالًا فعليًا ببيانات الفريق");
+      const result = await request<T>(path, token.current, body);
+      if (
+        path === "/api/mobile/devices" &&
+        body &&
+        typeof body === "object" &&
+        "token" in body
+      )
+        device.current = String(body.token);
+      return result;
+    },
+    [],
+  );
   return (
     <Context.Provider
       value={{

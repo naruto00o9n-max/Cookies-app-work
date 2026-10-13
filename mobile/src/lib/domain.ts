@@ -1,3 +1,4 @@
+import { findWork } from "./work-lookup";
 import type { Entry, Snapshot, Totals, Work } from "./types";
 export const monthKey = () => new Date().toISOString().slice(0, 7);
 export const uid = () =>
@@ -76,9 +77,10 @@ export function register(
   notes: string,
   verifiedPublication = false,
 ) {
-  const work = s.works.find((w) => w.name === workName);
+  const work = findWork(s.works, workName);
   if (!work || work.isolated || work.active === false)
     throw new Error("العمل غير متاح للتسجيل");
+  workName = work.name;
   const chapters = parseChapters(chaptersInput);
   const types = typesInput
     .split(/[,،]/)
