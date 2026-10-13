@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { issueGrant } from "@/lib/mobile-auth";
 import { getStore } from "@/lib/store";
 import { setSessionCookie } from "@/lib/session";
-import { DISCORD_API, redirectUri, PERM_ADMINISTRATOR, PERM_MANAGE_GUILD } from "@/lib/discord";
+import { DISCORD_API, redirectUri, PERM_ADMINISTRATOR, PERM_MANAGE_GUILD, PERM_MANAGE_MESSAGES } from "@/lib/discord";
 
 interface DiscordUser {
   id: string;
@@ -72,7 +72,7 @@ export async function GET(req: Request) {
         if (g.owner || ownerIds.includes(dUser.id)) isAdmin = true;
         if (!isAdmin) {
           const perms = BigInt(g.permissions || "0");
-          if ((perms & PERM_ADMINISTRATOR) !== 0n || (perms & PERM_MANAGE_GUILD) !== 0n) isAdmin = true;
+          if ((perms & PERM_ADMINISTRATOR) !== 0n || (perms & PERM_MANAGE_MESSAGES) !== 0n) isAdmin = true;
         }
       } else {
         if (guilds.some((g) => g.owner)) isAdmin = true;

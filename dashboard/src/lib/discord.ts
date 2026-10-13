@@ -9,3 +9,5 @@ export function redirectUri(req: Request): string {
 
 export const PERM_ADMINISTRATOR = BigInt(1) << BigInt(3);
 export const PERM_MANAGE_GUILD = BigInt(1) << BigInt(5);
+
+export const PERM_MANAGE_MESSAGES = BigInt(1) << BigInt(13);
