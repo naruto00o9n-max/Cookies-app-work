@@ -36,6 +36,8 @@ export async function discordSyncStatus() {
   return {
     lastSyncAt: doc?.lastSyncAt || null,
     synced: Number(doc?.synced || 0),
+    botId: doc?.botId || null,
+    botName: doc?.botName || null,
     running: Boolean(doc?.leaseUntil && +new Date(doc.leaseUntil) > Date.now()),
     ...(doc?.error ? { error: String(doc.error) } : {}),
   };
@@ -56,7 +58,7 @@ async function fetchDiscord(path: string): Promise<unknown> {
       throw new Error("ديسكورد طلب إبطاء المزامنة. أعد المحاولة بعد قليل");
     }
     if (response.status === 401) throw new Error("توكن البوت غير صالح. حدّث DISCORD_BOT_TOKEN في Vercel");
-    if (response.status === 403) throw new Error("فعّل Server Members Intent في إعدادات البوت، وتأكد أن البوت موجود في سيرفر الفريق");
+    if (response.status === 403) throw new Error(path.includes("/members?") ? "فعّل Server Members Intent في إعدادات البوت؛ ديسكورد رفض قراءة قائمة الأعضاء" : "البوت المرتبط بهذا التوكن لا يستطيع الوصول إلى سيرفر الفريق. أضف هذا البوت إلى السيرفر أو استخدم توكن البوت الموجود فيه");
     if (response.status === 404) throw new Error("تعذر العثور على سيرفر الفريق. راجع معرف السيرفر ووجود البوت فيه");
     throw new Error(`تعذر جلب الأعضاء من ديسكورد (${response.status})`);
   }
@@ -72,6 +74,7 @@ export async function syncDiscordMembers(options: { force?: boolean; moderatorId
   const config = db.collection("mobile_config");
   const previous = await config.findOne({ _id: SYNC_ID as never });
   if (!options.force && previous?.lastSyncAt && Date.now() - +new Date(previous.lastSyncAt) < SYNC_INTERVAL) return { ok: true, skipped: true, synced: Number(previous.synced || 0) };
+  if(!options.force && previous?.error && previous.botId && previous.startedAt && Date.now()-Date.parse(previous.startedAt)<5*60_000)return {ok:true,skipped:true,synced:Number(previous.synced||0)};
   const leaseToken = crypto.randomUUID();
   const now = new Date();
   let lease: Document | null;
@@ -86,7 +89,11 @@ export async function syncDiscordMembers(options: { force?: boolean; moderatorId
     throw error;
   }
   if (!lease) return { ok: true, busy: true, synced: Number(previous?.synced || 0) };
+  let botIdentity:{id:string;username:string}|undefined;
   try {
+    botIdentity=await fetchDiscord("/users/@me") as {id:string;username:string};
+    await config.updateOne({_id:SYNC_ID as never,leaseToken},{$set:{botId:botIdentity.id,botName:botIdentity.username}});
+    console.info("[Discord directory] bot:",botIdentity.username,botIdentity.id);
     const [guild, roles] = await Promise.all([
       fetchDiscord(`/guilds/${guildId}`) as Promise<{ owner_id: string }>,
       fetchDiscord(`/guilds/${guildId}/roles`) as Promise<Array<{ id: string; permissions: string }>>,
@@ -118,8 +125,8 @@ export async function syncDiscordMembers(options: { force?: boolean; moderatorId
     await db.collection("audit_log").insertOne({ action: "مزامنة أعضاء ديسكورد", moderator_id: options.moderatorId || null, details: `تم تحديث أسماء وصور ${synced} عضو من السيرفر`, timestamp: syncedAt });
     return { ok: true, synced };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "تعذرت مزامنة أعضاء ديسكورد";
+    const message = (error instanceof Error ? error.message : "تعذرت مزامنة أعضاء ديسكورد") + (botIdentity ? ` · البوت: ${botIdentity.username} (${botIdentity.id})` : "");
     await config.updateOne({ _id: SYNC_ID as never, leaseToken }, { $set: { error: message }, $unset: { leaseUntil: "", leaseToken: "" } });
-    throw error;
+    throw new Error(message);
   }
 }
