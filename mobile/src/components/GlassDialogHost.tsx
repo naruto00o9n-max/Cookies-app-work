@@ -1,6 +1,12 @@
-import React, { useSyncExternalStore, useId, useEffect } from "react";
+import React, {
+  useSyncExternalStore,
+  useId,
+  useEffect,
+  useLayoutEffect,
+} from "react";
 import {
-  Modal,
+  BackHandler,
+  Keyboard,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -22,10 +28,12 @@ export function GlassDialogHost({
   children,
   active = true,
   root = true,
+  onVisibilityChange,
 }: {
   children: React.ReactNode;
   active?: boolean;
   root?: boolean;
+  onVisibilityChange?: (visible: boolean) => void;
 }) {
   const id = useId();
   useEffect(
@@ -39,97 +47,114 @@ export function GlassDialogHost({
     currentDialog,
     currentDialog,
   );
+  const shown = Boolean(dialog && host === id && active);
+  useLayoutEffect(() => {
+    onVisibilityChange?.(shown);
+  }, [shown, onVisibilityChange]);
+  useEffect(() => {
+    if (!shown) return;
+    Keyboard.dismiss();
+    const listener = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (dialog?.options?.cancelable && closeDialog(dialog.id))
+        dialog.options.onDismiss?.();
+      return true;
+    });
+    return () => listener.remove();
+  }, [shown, dialog]);
   const cancel = () => {
     if (dialog?.options?.cancelable && closeDialog(dialog.id))
       dialog.options.onDismiss?.();
   };
   return (
-    <>
-      {children}
-      {dialog && host === id && active && (
-        <Modal
-          transparent
-          animationType="fade"
-          statusBarTranslucent
-          onRequestClose={cancel}
+    <View style={{ flex: 1 }}>
+      <View
+        style={{ flex: 1 }}
+        accessibilityElementsHidden={shown}
+        importantForAccessibility={shown ? "no-hide-descendants" : "auto"}
+      >
+        {children}
+      </View>
+      {dialog && shown && (
+        <SafeAreaView
+          style={[StyleSheet.absoluteFill, design.overlay]}
+          accessibilityViewIsModal
         >
-          <SafeAreaView style={design.overlay}>
-            <Pressable
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={cancel}
+            accessibilityLabel="إغلاق النافذة"
+          />
+          <View style={design.frame} accessibilityViewIsModal>
+            <BlurView
+              intensity={75}
+              tint="dark"
               style={StyleSheet.absoluteFill}
-              onPress={cancel}
-              accessibilityLabel="إغلاق النافذة"
             />
-            <View style={design.frame} accessibilityViewIsModal>
-              <BlurView
-                intensity={75}
-                tint="dark"
-                style={StyleSheet.absoluteFill}
-              />
-              <LinearGradient
-                colors={[
-                  "rgba(232,199,124,.12)",
-                  "rgba(18,19,25,.9)",
-                  "rgba(18,19,25,.98)",
-                ]}
-                style={StyleSheet.absoluteFill}
-              />
-              <Fade key={dialog.id}>
-                <ScrollView
-                  contentContainerStyle={design.content}
-                  style={{ maxHeight: height * 0.8 }}
-                  showsVerticalScrollIndicator={false}
-                >
-                  <View style={design.emblem}>
-                    <Icon
-                      name={
-                        dialog.buttons.some((b) => b.style === "destructive")
-                          ? "shield-outline"
-                          : "sparkles-outline"
-                      }
-                      size={30}
-                    />
-                  </View>
-                  <Heading size={23}>{dialog.title}</Heading>
-                  {!!dialog.message && (
-                    <Label style={{ lineHeight: 27 }} dim>
-                      {dialog.message}
-                    </Label>
-                  )}
-                  <View style={styles.stack}>
-                    {dialog.buttons.map((button, index) => (
-                      <Button
-                        key={index}
-                        title={button.text || "حسنًا"}
-                        secondary={button.style === "cancel"}
-                        danger={button.style === "destructive"}
-                        onPress={() => {
-                          if (closeDialog(dialog.id)) button.onPress?.();
-                        }}
-                      />
-                    ))}
-                  </View>
-                  <Label
-                    size={9}
-                    style={{
-                      color: colors.gold,
-                      opacity: 0.55,
-                      letterSpacing: 4,
-                    }}
-                  >
-                    C O O K I E S
+            <LinearGradient
+              colors={[
+                "rgba(232,199,124,.12)",
+                "rgba(18,19,25,.9)",
+                "rgba(18,19,25,.98)",
+              ]}
+              style={StyleSheet.absoluteFill}
+            />
+            <Fade key={dialog.id}>
+              <ScrollView
+                contentContainerStyle={design.content}
+                style={{ maxHeight: height * 0.8 }}
+                showsVerticalScrollIndicator={false}
+              >
+                <View style={design.emblem}>
+                  <Icon
+                    name={
+                      dialog.buttons.some((b) => b.style === "destructive")
+                        ? "shield-outline"
+                        : "sparkles-outline"
+                    }
+                    size={30}
+                  />
+                </View>
+                <Heading size={23}>{dialog.title}</Heading>
+                {!!dialog.message && (
+                  <Label style={{ lineHeight: 27 }} dim>
+                    {dialog.message}
                   </Label>
-                </ScrollView>
-              </Fade>
-            </View>
-          </SafeAreaView>
-        </Modal>
+                )}
+                <View style={styles.stack}>
+                  {dialog.buttons.map((button, index) => (
+                    <Button
+                      key={index}
+                      title={button.text || "حسنًا"}
+                      secondary={button.style === "cancel"}
+                      danger={button.style === "destructive"}
+                      onPress={() => {
+                        if (closeDialog(dialog.id)) button.onPress?.();
+                      }}
+                    />
+                  ))}
+                </View>
+                <Label
+                  size={9}
+                  style={{
+                    color: colors.gold,
+                    opacity: 0.55,
+                    letterSpacing: 4,
+                  }}
+                >
+                  C O O K I E S
+                </Label>
+              </ScrollView>
+            </Fade>
+          </View>
+        </SafeAreaView>
       )}
-    </>
+    </View>
   );
 }
 const design = StyleSheet.create({
   overlay: {
-    flex: 1,
+    zIndex: 10000,
+    elevation: 10000,
     backgroundColor: "rgba(0,0,0,.72)",
     alignItems: "center",
     justifyContent: "center",

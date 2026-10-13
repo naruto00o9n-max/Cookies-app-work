@@ -164,7 +164,8 @@ export function Button({
       accessibilityLabel={title}
       disabled={disabled}
       onPress={() => {
-        if (Platform.OS !== "web") void Haptics.selectionAsync();
+        if (Platform.OS !== "web")
+          void Haptics.selectionAsync().catch(() => {});
         onPress();
       }}
       style={({ pressed }) => [

@@ -7,6 +7,7 @@ import {
   NavigationContainer,
   DarkTheme,
   createNavigationContainerRef,
+  useIsFocused,
 } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -142,6 +143,47 @@ function Main() {
     </Tabs.Navigator>
   );
 }
+function withScreenDialogs(Screen: React.ComponentType<any>) {
+  return function ScreenWithDialogs(props: any) {
+    const focused = useIsFocused();
+    const update = React.useCallback(
+      (visible: boolean) => {
+        props.navigation.setOptions({
+          gestureEnabled: !visible,
+          headerBackVisible: !visible,
+        });
+      },
+      [props.navigation],
+    );
+    return (
+      <GlassDialogHost
+        root={false}
+        active={focused}
+        onVisibilityChange={update}
+      >
+        <Screen {...props} />
+      </GlassDialogHost>
+    );
+  };
+}
+const dialogScreens = {
+  Main: withScreenDialogs(Main),
+  Register: withScreenDialogs(Register),
+  Detail: withScreenDialogs(Detail),
+  Control: withScreenDialogs(Control),
+  ControlSection: withScreenDialogs(ControlSection),
+  Reports: withScreenDialogs(Reports),
+  Specialties: withScreenDialogs(Specialties),
+  Months: withScreenDialogs(Months),
+  Audit: withScreenDialogs(Audit),
+  Help: withScreenDialogs(Help),
+  Diagnostics: withScreenDialogs(Diagnostics),
+  Azora: withScreenDialogs(Azora),
+  AzoraLink: withScreenDialogs(AzoraLink),
+  AzoraLinked: withScreenDialogs(AzoraLinked),
+  AzoraSettings: withScreenDialogs(AzoraSettings),
+  AdminForm: withScreenDialogs(AdminForm),
+};
 function Screens() {
   const { user, busy, snapshot } = useTeam();
   if (busy && !user)
@@ -175,82 +217,82 @@ function Screens() {
       >
         <Stack.Screen
           name="Main"
-          component={Main}
+          component={dialogScreens.Main}
           options={{ title: "COOKIES", headerTitleAlign: "center" }}
         />
         <Stack.Screen
           name="Register"
-          component={Register}
+          component={dialogScreens.Register}
           options={{ title: "تسجيل فصول", presentation: "modal" }}
         />
         <Stack.Screen
           name="Detail"
-          component={Detail}
+          component={dialogScreens.Detail}
           options={{ title: "التفاصيل" }}
         />
         <Stack.Screen
           name="Control"
-          component={Control}
+          component={dialogScreens.Control}
           options={{ title: "لوحة الإشراف" }}
         />
         <Stack.Screen
           name="ControlSection"
-          component={ControlSection}
+          component={dialogScreens.ControlSection}
           options={{ title: "إدارة الفريق" }}
         />
         <Stack.Screen
           name="Reports"
-          component={Reports}
+          component={dialogScreens.Reports}
           options={{ title: "التقارير" }}
         />
         <Stack.Screen
           name="Specialties"
-          component={Specialties}
+          component={dialogScreens.Specialties}
           options={{ title: "الأسعار والتخصصات" }}
         />
         <Stack.Screen
           name="Months"
-          component={Months}
+          component={dialogScreens.Months}
           options={{ title: "الشهور" }}
         />
         <Stack.Screen
           name="Audit"
-          component={Audit}
+          component={dialogScreens.Audit}
           options={{ title: "سجل الإدارة" }}
         />
         <Stack.Screen
           name="Help"
-          component={Help}
+          component={dialogScreens.Help}
           options={{ title: "دليل الاستخدام" }}
         />
         <Stack.Screen
           name="Diagnostics"
-          component={Diagnostics}
+          component={dialogScreens.Diagnostics}
           options={{ title: "فحص الاتصال" }}
         />
         <Stack.Screen
           name="Azora"
-          component={Azora}
+          component={dialogScreens.Azora}
           options={{ title: "مركز أزورا" }}
         />
         <Stack.Screen
           name="AzoraLink"
-          component={AzoraLink}
+          component={dialogScreens.AzoraLink}
           options={{ title: "ربط عمل بأزورا" }}
         />
         <Stack.Screen
           name="AzoraLinked"
-          component={AzoraLinked}
+          component={dialogScreens.AzoraLinked}
           options={{ title: "الأعمال المرتبطة" }}
         />
         <Stack.Screen
           name="AzoraSettings"
-          component={AzoraSettings}
+          component={dialogScreens.AzoraSettings}
           options={{ title: "إعدادات أزورا" }}
         />
         <Stack.Screen
           name="AdminForm"
-          component={AdminForm}
+          component={dialogScreens.AdminForm}
           options={{ title: "إدارة المساحة", presentation: "modal" }}
         />
       </Stack.Navigator>

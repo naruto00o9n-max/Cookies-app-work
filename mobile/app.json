@@ -3,13 +3,16 @@
     "name": "Cookies",
     "slug": "cookies-team",
     "scheme": "cookiestracker",
-    "version": "1.3.0",
+    "version": "1.3.1",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/icon.png",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "team.cookies.tracker"
+      "bundleIdentifier": "team.cookies.tracker",
+      "entitlements": {
+        "aps-environment": "production"
+      }
     },
     "android": {
       "package": "team.cookies.tracker",

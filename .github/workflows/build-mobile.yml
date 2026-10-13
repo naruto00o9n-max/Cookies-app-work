@@ -161,6 +161,19 @@ jobs:
       - run: npm ci
       - name: Generate iOS project
         run: npx expo prebuild --platform ios --no-install
+      - name: Verify production APNs entitlement and app identity
+        run: |
+          python3 - <<'PYCODE'
+          import json, pathlib, plistlib
+          config = json.loads(pathlib.Path('app.json').read_text())['expo']
+          assert config['ios']['bundleIdentifier'] == 'team.cookies.tracker'
+          source = pathlib.Path('ios/Cookies/Cookies.entitlements')
+          entitlements = plistlib.loads(source.read_bytes())
+          assert entitlements.get('aps-environment') == 'production', 'Missing production APNs entitlement'
+          pathlib.Path('build').mkdir(exist_ok=True)
+          pathlib.Path('build/Cookies.entitlements').write_bytes(source.read_bytes())
+          print('Production APNs entitlement verified for team.cookies.tracker. Final signing must preserve it.')
+          PYCODE
       - name: Install native pods
         run: pod install --project-directory=ios
       - name: Archive for physical iPhone without signing
@@ -193,6 +206,8 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: cookies-ios-unsigned-ipa
-          path: mobile/build/Cookies-unsigned.ipa
+          path: |
+            mobile/build/Cookies-unsigned.ipa
+            mobile/build/Cookies.entitlements
           if-no-files-found: error
           retention-days: 30

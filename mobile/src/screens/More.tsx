@@ -1,5 +1,7 @@
 import { Alert } from "../lib/alerts";
 import React from "react";
+import Constants from "expo-constants";
+import { notificationBundleId } from "../lib/notifications";
 import { View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useTeam } from "../lib/context";
@@ -422,6 +424,7 @@ export function Help() {
 }
 export function Diagnostics() {
   const { snapshot: s, user, offline, error, refresh } = useTeam();
+  const push = usePush();
   return (
     <Page>
       <View style={styles.stack}>
@@ -437,6 +440,31 @@ export function Diagnostics() {
           />
           <Row title="الشهر النشط" right={s?.settings.active_month} />
           {error && <Label style={{ color: colors.red }}>{error}</Label>}
+        </Glass>
+        <Glass>
+          <Row title="إصدار التطبيق" right={Constants.expoConfig?.version} />
+          <Row
+            title="معرّف النسخة المثبتة"
+            detail={notificationBundleId() || "متصفح"}
+          />
+          <Row
+            title="ربط الإشعارات"
+            detail={
+              push.busy
+                ? "جارٍ ربط الجهاز…"
+                : push.enabled
+                  ? "الجهاز مربوط بخدمة الفريق"
+                  : "الجهاز غير مربوط"
+            }
+          />
+          {!!push.error && (
+            <Label style={{ color: colors.red }}>{push.error}</Label>
+          )}
+          <Button
+            title="إعادة فحص الإشعارات"
+            disabled={push.busy}
+            onPress={() => void push.enable()}
+          />
         </Glass>
         <Button
           title="فحص وتحديث"
