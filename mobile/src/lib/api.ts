@@ -6,6 +6,14 @@ WebBrowser.maybeCompleteAuthSession();
 export const server = (
   process.env.EXPO_PUBLIC_API_URL || "https://cookies-app-work.vercel.app"
 ).replace(/\/$/, "");
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
 export async function request<T>(
   path: string,
   token?: string,
@@ -24,7 +32,8 @@ export async function request<T>(
     signal: AbortSignal.timeout(20000),
   });
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "تعذر الاتصال بالفريق");
+  if (!response.ok)
+    throw new ApiError(data.error || "تعذر الاتصال بالفريق", response.status);
   return data;
 }
 export async function discordLogin(): Promise<{
@@ -52,7 +61,17 @@ export async function discordLogin(): Promise<{
     "cookiestracker://auth",
   );
   if (result.type !== "success") throw new Error("لم يكتمل تسجيل الدخول");
-  const code = new URL(result.url).searchParams.get("code");
+  const params = new URL(result.url).searchParams;
+  const authError = params.get("error");
+  if (authError)
+    throw new Error(
+      authError === "blocked"
+        ? "تم إيقاف دخولك إلى التطبيق. تواصل مع مشرف الفريق"
+        : authError === "notmember"
+          ? "حسابك ليس عضوًا في سيرفر الفريق"
+          : "تعذر إكمال تسجيل الدخول. حاول مجددًا أو تواصل مع المشرف",
+    );
+  const code = params.get("code");
   if (!code) throw new Error("لم يصل رمز تسجيل الدخول");
   const data = await request<{
     token: string;

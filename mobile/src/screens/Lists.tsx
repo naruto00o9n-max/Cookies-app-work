@@ -3,6 +3,8 @@ import React, { useMemo, useState } from "react";
 import { View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useTeam } from "../lib/context";
+import { useRegistrationPreferences } from "../lib/use-registration-preferences";
+import { contributionSummary } from "../lib/detail-data";
 import { visibleEntries, totalOf } from "../lib/domain";
 import {
   Page,
@@ -21,15 +23,30 @@ import {
 export function Works() {
   const { snapshot: s, user } = useTeam();
   const nav = useNavigation<any>();
+  const { preferences, remember } = useRegistrationPreferences(user?.id || "");
   const [query, setQuery] = useState(""),
     [filter, setFilter] = useState("active");
   if (!s) return null;
-  const works = s.works.filter(
-    (w) =>
-      (filter === "all" ||
-        (filter === "isolated" ? w.isolated : !w.isolated)) &&
-      w.name.toLowerCase().includes(query.toLowerCase()),
-  );
+  const works = s.works
+    .filter(
+      (w) =>
+        (filter === "all" ||
+          (filter === "isolated" ? w.isolated : !w.isolated)) &&
+        `${w.name} ${w.azora?.title || ""} ${w.azora?.slug || ""}`
+          .toLowerCase()
+          .includes(query.toLowerCase()),
+    )
+    .sort((a, b) => {
+      const rank = (name: string) => {
+        const i = preferences.works.indexOf(name);
+        return i < 0 ? 999 : i;
+      };
+      return rank(a.name) - rank(b.name) || a.name.localeCompare(b.name);
+    });
+  const openWork = (name: string) => {
+    remember(name);
+    nav.navigate("Detail", { work: name });
+  };
   return (
     <Page>
       <View style={styles.stack}>
@@ -50,6 +67,19 @@ export function Works() {
           value={filter}
           onSelect={setFilter}
         />
+        {!!preferences.works.length && (
+          <Glass>
+            <Section title="استخدمتها مؤخرًا" />
+            <Chips
+              items={preferences.works
+                .filter((name) => s.works.some((w) => w.name === name))
+                .slice(0, 5)
+                .map((name) => ({ label: name, value: name }))}
+              value=""
+              onSelect={openWork}
+            />
+          </Glass>
+        )}
         {user?.isAdmin && (
           <Button
             secondary
@@ -64,16 +94,17 @@ export function Works() {
                 e.work_name === w.name &&
                 e.month_key === s.settings.active_month,
             ),
-            t = totalOf(entries);
+            t = totalOf(entries),
+            summary = contributionSummary(entries);
           return (
             <Glass key={w.name}>
               <Row
                 title={w.name}
                 image={w.azora?.cover}
                 cover
-                detail={`${t.chapters} فصل · ${new Set(entries.map((e) => e.userId)).size} مساهم · ${w.isolated ? "معزول" : w.azora ? "مرتبط بأزورا" : "نشط"}`}
+                detail={`${summary.chapters} فصل مختلف · ${summary.tasks} مهام · ${summary.members} مساهم · ${w.isolated ? "معزول" : w.active === false ? "التسجيل متوقف" : w.azora ? "مرتبط بأزورا" : "نشط"}`}
                 icon="albums-outline"
-                onPress={() => nav.navigate("Detail", { work: w.name })}
+                onPress={() => openWork(w.name)}
               />
               <View style={styles.divider} />
               <View
@@ -111,7 +142,7 @@ export function Records() {
       (e) =>
         e.month_key === active &&
         (owner === "all" || e.userId === user.id) &&
-        `${e.work_name} ${e.work_type} ${e.chapter} ${e.username}`
+        `${e.work_name} ${e.work_type} ${e.chapter} ${s.members.find((m) => m.id === e.userId)?.name || e.username}`
           .toLowerCase()
           .includes(query.toLowerCase()),
     )
@@ -136,7 +167,7 @@ export function Records() {
   return (
     <Page>
       <View style={styles.stack}>
-        <Heading>كل إنجاز، محفوظ.</Heading>
+        <Heading>سجلات فصولك، مرتبة.</Heading>
         <Chips
           items={[
             { label: "أعمالي", value: "mine" },
@@ -182,6 +213,9 @@ export function Records() {
               cover
               detail={`${s.members.find((m) => m.id === e.userId)?.name || e.username} · ${e.work_type.replace(/_/g, " ")} · ${e.chapter === "-" ? "تسوية" : `فصل ${e.chapter}`}`}
               right={`${s.settings.currency}${e.total.toFixed(3)}`}
+              onPress={() =>
+                nav.navigate("Detail", { work: e.work_name, member: e.userId })
+              }
             />
             <Label dim size={10}>
               {new Date(e.timestamp).toLocaleString("ar")}
@@ -205,71 +239,5 @@ export function Records() {
     </Page>
   );
 }
-export function Team() {
-  const { snapshot: s } = useTeam();
-  const nav = useNavigation<any>();
-  const [query, setQuery] = useState(""),
-    [sort, setSort] = useState("chapters"),
-    [specialty, setSpecialty] = useState("all");
-  if (!s) return null;
-  const members = s.members
-    .map((m) => ({
-      ...m,
-      ...totalOf(
-        visibleEntries(s, m.id).filter(
-          (e) => specialty === "all" || e.work_type === specialty,
-        ),
-      ),
-    }))
-    .filter((m) => m.name.toLowerCase().includes(query.toLowerCase()))
-    .sort((a, b) =>
-      sort === "amount"
-        ? b.amount - a.amount
-        : sort === "works"
-          ? b.works - a.works
-          : b.chapters - a.chapters,
-    );
-  return (
-    <Page>
-      <View style={styles.stack}>
-        <Heading>الفريق وراء كل فصل</Heading>
-        <Label dim>ترتيب الفريق في الشهر النشط.</Label>
-        <Field label="ابحث عن عضو" value={query} onChange={setQuery} />
-        <Chips
-          items={[
-            { label: "بالفصول", value: "chapters" },
-            { label: "بالمستحقات", value: "amount" },
-            { label: "بالأعمال", value: "works" },
-          ]}
-          value={sort}
-          onSelect={setSort}
-        />
-        <Chips
-          items={[
-            { label: "كل التخصصات", value: "all" },
-            ...Object.keys(s.specialties).map((t) => ({
-              label: t.replace(/_/g, " "),
-              value: t,
-            })),
-          ]}
-          value={specialty}
-          onSelect={setSpecialty}
-        />
-        {members.map((m, i) => (
-          <Glass key={m.id} gold={i === 0}>
-            <Row
-              image={m.avatar}
-              title={`${i < 3 ? ["🥇", "🥈", "🥉"][i] : `${i + 1}.`} ${m.name}`}
-              detail={`${m.chapters} فصل · ${m.works} أعمال`}
-              icon="person-outline"
-              right={`${s.settings.currency}${m.amount.toFixed(3)}`}
-              onPress={() => nav.navigate("Detail", { member: m.id })}
-            />
-          </Glass>
-        ))}
-        {!members.length && <Empty />}
-      </View>
-    </Page>
-  );
-}
+export { Arena as Team } from "./Arena";
 export { Detail } from "./Detail";

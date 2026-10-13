@@ -21,7 +21,7 @@ export function toSnapshot(records: Record<string, RecordEntry[]>, works: Snapsh
     records:Object.entries(records).flatMap(([userId, entries])=>entries.map((e,index)=>({...e,month_key:e.month_key||e.timestamp?.slice(0,7)||'unknown',userId,id:crypto.createHash('sha256').update(JSON.stringify([userId,e.work_name,e.chapter,e.work_type,e.timestamp,index])).digest('hex')}))),
     works, specialties:settings.specialties || defaults.specialties,
     settings:{...defaults.settings,...settings,active_month:settings.active_month || defaults.settings.active_month},
-    members:[...new Set([...members.map(m=>String(m._id)),...Object.keys(records)])].map(id=>{const m=members.find(m=>String(m._id)===id);return {id,name:m?.nickname||m?.username||records[id]?.find(e=>e.username)?.username||id,avatar:m?.avatar};}),
+    members:[...new Set([...members.map(m=>String(m._id)),...Object.keys(records)])].map(id=>{const m=members.find(m=>String(m._id)===id);return {id,name:m?.nickname||m?.globalName||m?.username||records[id]?.find(e=>e.username)?.username||id,avatar:m?.avatar,username:m?.username,nickname:m?.nickname,globalName:m?.globalName,joinedAt:m?.joinedAt,firstLoginAt:m?.firstLoginAt,lastLoginAt:m?.lastLoginAt,appRegistered:Boolean(m?.appRegistered),isAdmin:Boolean(m?.isAdmin),blocked:Boolean(m?.blocked),title:m?.title};}),
     months:[...new Set([settings.active_month||defaults.settings.active_month,...months.map(m=>String(m._id)),...Object.values(records).flatMap(list=>list.map(e=>e.month_key||e.timestamp?.slice(0,7))).filter(key=>key&&/^\d{4}-(0[1-9]|1[0-2])$/.test(key))])].map(key=>({key,name:months.find(m=>String(m._id)===key)?.name||key})),
     audit:audit.map(a=>({id:String(a._id||a.timestamp),action:a.action,details:a.details||'',timestamp:a.timestamp,moderator_id:a.moderator_id||''})),
   };
@@ -56,7 +56,8 @@ async function writeMongo(db: Db, s: Snapshot, session: ClientSession, action: s
   await db.collection('settings').updateOne({_id:'settings' as never},{$set:settings,$inc:{revision:1}},opts);
   for(const m of s.months) await db.collection('months').updateOne({_id:m.key as never},{$set:{name:m.name}},opts);
   if(action==='deleteMonth'||action==='import') await db.collection('months').deleteMany({_id:{$nin:s.months.map(m=>m.key) as never}},{session});
-  if(action==='import') for(const m of s.members) await db.collection('members').updateOne({_id:m.id as never},{$set:{username:m.name,avatar:m.avatar}},opts);
+  // Importing financial backups must not overwrite verified Discord identity or access metadata.
+  if(action==='import') for(const m of s.members) await db.collection('members').updateOne({_id:m.id as never},{$setOnInsert:{username:m.username||m.name,...(m.avatar?{avatar:m.avatar}:{})}},opts);
   const {id: _id,...audit}=s.audit[0];
   await db.collection('audit_log').insertOne(audit,{session});
 }
@@ -84,9 +85,20 @@ export async function nativeCommand(command: Command, user: SessionUser) {
   }
   throw new Error('لم يتم إعداد قاعدة بيانات الفريق');
 }
-async function verifyPublication(s:Snapshot,c:Command,db:Db,session:ClientSession) {
-  if(!['register','editLast'].includes(c.action)) return;
-  if(c.action==='editLast'){const last=s.records.filter(e=>e.userId===String(c.payload.userId)&&e.month_key===s.settings.active_month&&!['مكافأة','خصم'].includes(e.work_type)).sort((a,b)=>b.timestamp.localeCompare(a.timestamp))[0];if(!last)return;c={...c,payload:{...c.payload,work:c.payload.work||last.work_name,chapters:c.payload.chapter||last.chapter,types:c.payload.types||last.work_type}};}
+export async function verifyPublication(s:Snapshot,c:Command,db:Db,session:ClientSession) {
+  if(!['register','editLast','editRecord'].includes(c.action)) return;
+  let month=s.settings.active_month;
+  let excludeId:string|undefined;
+  if(c.action==='editLast'){const last=s.records.filter(e=>e.userId===String(c.payload.userId)&&e.month_key===s.settings.active_month&&!['مكافأة','خصم'].includes(e.work_type)).sort((a,b)=>b.timestamp.localeCompare(a.timestamp))[0];if(!last)return;excludeId=last.id;c={...c,payload:{...c.payload,work:c.payload.work||last.work_name,chapters:c.payload.chapter||last.chapter,types:c.payload.types||last.work_type}};}
+  if(c.action==='editRecord'){
+    const entry=s.records.find(e=>e.id===String(c.payload.id));
+    if(!entry||['مكافأة','خصم'].includes(entry.work_type))return;
+    const work=String(c.payload.work||entry.work_name).trim(), chapter=String(c.payload.chapter||entry.chapter).trim(), types=String(c.payload.types||entry.work_type).trim(), userId=String(c.payload.userId||entry.userId).trim();
+    // Notes-only edits retain the historic price and do not require a current publication cache.
+    if(work===entry.work_name&&Number(chapter)===Number(entry.chapter)&&types===entry.work_type&&userId===entry.userId)return;
+    month=entry.month_key;excludeId=entry.id;
+    c={...c,payload:{...c.payload,work,chapters:chapter,types,userId}};
+  }
   const w=s.works.find(w=>w.name===String(c.payload.work)); if(!w?.azora) return;
   const {parseChapters}=await import('../../../mobile/src/lib/domain');
   const chapters=parseChapters(String(c.payload.chapters||''));
@@ -99,6 +111,6 @@ async function verifyPublication(s:Snapshot,c:Command,db:Db,session:ClientSessio
     const ch=chapters[i]; if(Number(ch)<(w.paid_start??0)) continue;
     if(nums&&!nums.has(String(Number(ch)))) throw new Error(`الفصل ${ch} لم ينشر على أزورا بعد`);
     const type=types.length===1?types[0]:types[i];
-    if(s.records.some(e=>e.userId!==String(c.payload.userId)&&e.month_key===s.settings.active_month&&e.work_name===w.name&&Number(e.chapter)===Number(ch)&&e.work_type===type)) throw new Error(`الفصل ${ch} (${type}) مسجل لدى عضو آخر`);
+    if(s.records.some(e=>e.id!==excludeId&&e.userId!==String(c.payload.userId)&&e.month_key===month&&e.work_name===w.name&&Number(e.chapter)===Number(ch)&&e.work_type===type)) throw new Error(`الفصل ${ch} (${type}) مسجل لدى عضو آخر`);
   }
 }

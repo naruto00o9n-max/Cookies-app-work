@@ -1,15 +1,17 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { issueGrant } from "@/lib/mobile-auth";
-import { getStore } from "@/lib/store";
+import { nativeDb } from "@/lib/native-service";
+import { discordMemberPatch } from "@/lib/discord-members";
 import { setSessionCookie } from "@/lib/session";
-import { DISCORD_API, redirectUri, PERM_ADMINISTRATOR, PERM_MANAGE_GUILD, PERM_MANAGE_MESSAGES } from "@/lib/discord";
+import { DISCORD_API, redirectUri, PERM_ADMINISTRATOR, PERM_MANAGE_MESSAGES } from "@/lib/discord";
 
 interface DiscordUser {
   id: string;
   username: string;
   global_name?: string | null;
   avatar?: string | null;
+  discriminator?: string;
 }
 
 export async function GET(req: Request) {
@@ -32,6 +34,7 @@ export async function GET(req: Request) {
 
   const challenge = store.get("ct_mobile_challenge")?.value;
   store.set("ct_mobile_challenge", "", { path: "/", maxAge: 0 });
+  const fail=(reason:string)=>NextResponse.redirect(challenge?`cookiestracker://auth?error=${reason}`:new URL(`/?auth=${reason}`,req.url));
   try {
     if (!process.env.DISCORD_GUILD_ID) throw new Error("DISCORD_GUILD_ID is required");
     const tokenRes = await fetch(`${DISCORD_API}/oauth2/token`, {
@@ -67,7 +70,7 @@ export async function GET(req: Request) {
       if (guildId) {
         const g = guilds.find((x) => x.id === guildId);
         if (!g) {
-          return NextResponse.redirect(new URL("/?auth=notmember", req.url));
+          return fail("notmember");
         }
         if (g.owner || ownerIds.includes(dUser.id)) isAdmin = true;
         if (!isAdmin) {
@@ -81,22 +84,26 @@ export async function GET(req: Request) {
 
     const membershipRes = await fetch(`${DISCORD_API}/users/@me/guilds/${process.env.DISCORD_GUILD_ID}/member`, { headers });
     if (!membershipRes.ok) throw new Error(`member profile ${membershipRes.status}; sign in again to grant guilds.members.read`);
-    const membership = await membershipRes.json() as { nick?: string | null; avatar?: string | null };
-    const avatarHash = membership.avatar || dUser.avatar;
-    const avatarBase = membership.avatar
-      ? `https://cdn.discordapp.com/guilds/${process.env.DISCORD_GUILD_ID}/users/${dUser.id}/avatars`
-      : `https://cdn.discordapp.com/avatars/${dUser.id}`;
-    const avatar = avatarHash
-      ? `${avatarBase}/${avatarHash}.${avatarHash.startsWith("a_") ? "gif" : "png"}?size=256`
-      : `https://cdn.discordapp.com/embed/avatars/${Number((BigInt(dUser.id) >> BigInt(22)) % BigInt(6))}.png`;
+    const membership = await membershipRes.json() as { nick?: string | null; avatar?: string | null; joined_at?: string };
+    const profile = discordMemberPatch({ ...membership, user: dUser }, process.env.DISCORD_GUILD_ID);
     const user = {
       id: dUser.id,
       username: dUser.username,
       globalName: membership.nick || dUser.global_name || dUser.username,
-      avatar,
+      avatar: profile.avatar,
       isAdmin,
     };
-    await getStore().upsertMember(user.id, { username: user.username, nickname: membership.nick || dUser.global_name || dUser.username, avatar: user.avatar });
+    const db = nativeDb();
+    if (!db) throw new Error("Database not configured");
+    const members = db.collection("members");
+    const existing = await members.findOne({ _id: user.id as never });
+    if (existing?.blocked) return fail("blocked");
+    const now = new Date().toISOString();
+    await members.updateOne({ _id: user.id as never }, {
+      $set: { ...profile, isAdmin, appRegistered: true, lastLoginAt: now, last_seen: now },
+      $setOnInsert: { first_seen: now },
+    }, { upsert: true });
+    await members.updateOne({ _id: user.id as never, firstLoginAt: { $exists: false } }, { $set: { firstLoginAt: now } });
     if (challenge) {
       const grant = await issueGrant(user, challenge);
       return NextResponse.redirect(`cookiestracker://auth?code=${encodeURIComponent(grant)}`);
@@ -106,6 +113,6 @@ export async function GET(req: Request) {
     return NextResponse.redirect(new URL("/", req.url));
   } catch (e) {
     console.error("[OAUTH] callback failed:", e);
-    return NextResponse.redirect(new URL("/?auth=error", req.url));
+    return fail("error");
   }
 }

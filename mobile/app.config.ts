@@ -2,7 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import type { ExpoConfig } from "expo/config";
 import app from "./app.json";
-const projectId = process.env.EXPO_PUBLIC_EAS_PROJECT_ID;
+const configuredExtra = (app.expo as ExpoConfig).extra ?? {};
+const projectId =
+  process.env.EXPO_PUBLIC_EAS_PROJECT_ID || configuredExtra.eas?.projectId;
 if (
   projectId &&
   !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
@@ -20,5 +22,10 @@ export default {
       ? { googleServicesFile: "./google-services.json" }
       : {}),
   },
-  ...(projectId ? { extra: { eas: { projectId } } } : {}),
+  extra: {
+    ...configuredExtra,
+    ...(projectId
+      ? { eas: { ...configuredExtra.eas, projectId } }
+      : {}),
+  },
 } as ExpoConfig;

@@ -1,7 +1,7 @@
 import React from "react";
 import * as Notifications from "expo-notifications";
 import { NotificationCenter } from "./src/components/NotificationCenter";
-import { View, ActivityIndicator } from "react-native";
+import { View, ActivityIndicator, Platform } from "react-native";
 import {
   NavigationContainer,
   DarkTheme,
@@ -29,6 +29,7 @@ import {
   Help,
   Diagnostics,
 } from "./src/screens/More";
+import { Control, ControlSection } from "./src/screens/Control";
 import { Specialties, AdminForm } from "./src/screens/Admin";
 import { Azora } from "./src/screens/Azora";
 const notificationNav = createNavigationContainerRef<any>();
@@ -47,6 +48,7 @@ const theme = {
 };
 function Main() {
   React.useEffect(() => {
+    if (Platform.OS === "web") return;
     let active = true;
     let lastId = "";
     const open = (response: Notifications.NotificationResponse | null) => {
@@ -68,7 +70,9 @@ function Main() {
       void Notifications.clearLastNotificationResponseAsync();
     };
     const sub = Notifications.addNotificationResponseReceivedListener(open);
-    void Notifications.getLastNotificationResponseAsync().then(open);
+    void Notifications.getLastNotificationResponseAsync()
+      .then(open)
+      .catch(() => {});
     return () => {
       active = false;
       sub.remove();
@@ -171,12 +175,22 @@ function Screens() {
         <Stack.Screen
           name="Register"
           component={Register}
-          options={{ title: "إنجاز جديد", presentation: "modal" }}
+          options={{ title: "تسجيل فصول", presentation: "modal" }}
         />
         <Stack.Screen
           name="Detail"
           component={Detail}
           options={{ title: "التفاصيل" }}
+        />
+        <Stack.Screen
+          name="Control"
+          component={Control}
+          options={{ title: "لوحة الإشراف" }}
+        />
+        <Stack.Screen
+          name="ControlSection"
+          component={ControlSection}
+          options={{ title: "إدارة الفريق" }}
         />
         <Stack.Screen
           name="Reports"
@@ -240,8 +254,10 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <TeamProvider>
-          <StatusBar style="light" />
-          <Screens />
+          <NotificationCenter>
+            <StatusBar style="light" />
+            <Screens />
+          </NotificationCenter>
         </TeamProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

@@ -105,7 +105,12 @@ export function More() {
         </Glass>
         {user.isAdmin && (
           <>
-            <Section title="إدارة الفريق" />
+            <Button
+              title="لوحة الإشراف الكاملة"
+              icon="shield-checkmark-outline"
+              onPress={() => nav.navigate("Control")}
+            />
+            <Section title="أدوات الإدارة" />
             <Glass>
               <Row
                 title="المكافآت والخصومات"
@@ -360,11 +365,15 @@ export function Audit() {
           <Glass key={a.id}>
             <Row
               title={a.action}
+              image={s?.members.find((m) => m.id === a.moderator_id)?.avatar}
               detail={a.details}
               icon="shield-checkmark-outline"
             />
             <Label dim size={10}>
-              {new Date(a.timestamp).toLocaleString("ar")} · {a.moderator_id}
+              {new Date(a.timestamp).toLocaleString("ar")} ·{" "}
+              {s?.members.find((m) => m.id === a.moderator_id)?.name ||
+                a.moderator_id ||
+                "مهمة تلقائية"}
             </Label>
           </Glass>
         ))}

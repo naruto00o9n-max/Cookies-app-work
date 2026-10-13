@@ -12,7 +12,7 @@ import { AppState } from "react-native";
 import { uid } from "./domain";
 import { type Command } from "./commands";
 import { cache, readToken, saveToken, removeToken } from "./storage";
-import { request, discordLogin, type StateResponse } from "./api";
+import { ApiError, request, discordLogin, type StateResponse } from "./api";
 import type { Identity, Snapshot } from "./types";
 type Model = {
   snapshot: Snapshot | null;
@@ -69,6 +69,16 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
       await cache.write({ snapshot: data.snapshot, user: identity });
     } catch (e) {
       if (mounted.current) {
+        if (e instanceof ApiError && [401, 403].includes(e.status)) {
+          token.current = null;
+          setUser(null);
+          setSnapshot(null);
+          setOffline(false);
+          setError(e.message);
+          await removeToken();
+          await cache.clear();
+          return;
+        }
         setOffline(true);
         setError(e instanceof Error ? e.message : "تعذر الاتصال");
       }

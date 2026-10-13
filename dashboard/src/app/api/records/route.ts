@@ -29,7 +29,7 @@ export async function GET(req: Request) {
         const doc = members[uid];
         out.push({
           userId: uid,
-          memberName: doc?.nickname || doc?.username || e.username || uid,
+          memberName: doc?.nickname || doc?.globalName || doc?.username || e.username || uid,
           entry: e as unknown as Record<string, unknown>,
         });
       }

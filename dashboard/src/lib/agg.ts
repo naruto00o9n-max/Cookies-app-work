@@ -82,7 +82,7 @@ export async function memberDirectory(store: Store, records: Record<string, Reco
     const hint = (records[id] || []).find((e) => e.username)?.username;
     map.set(id, {
       id,
-      name: doc?.nickname || doc?.username || hint || id,
+      name: doc?.nickname || doc?.globalName || doc?.username || hint || id,
       username: doc?.username || hint,
       nickname: doc?.nickname,
       avatar: doc?.avatar,

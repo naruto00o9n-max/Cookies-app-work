@@ -26,7 +26,21 @@ export type Work = {
     chapterCount?: number;
   };
 };
-export type Member = { id: string; name: string; avatar?: string };
+export type Member = {
+  id: string;
+  name: string;
+  avatar?: string;
+  username?: string;
+  nickname?: string | null;
+  globalName?: string | null;
+  joinedAt?: string;
+  firstLoginAt?: string;
+  lastLoginAt?: string;
+  appRegistered?: boolean;
+  isAdmin?: boolean;
+  blocked?: boolean;
+  title?: string;
+};
 export type Audit = {
   id: string;
   action: string;

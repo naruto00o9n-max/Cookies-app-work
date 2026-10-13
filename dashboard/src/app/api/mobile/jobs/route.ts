@@ -3,6 +3,7 @@ import {json} from '@/lib/api';
 import {nativeDb,nativeSnapshot} from '@/lib/native-service';
 import {syncAzora} from '@/lib/azora-native';
 import {sendTeamPush} from '@/lib/push';
+import {syncDiscordMembers} from '@/lib/discord-members';
 export const maxDuration=300;
 export async function GET(req:Request){
   const supplied=req.headers.get('authorization')||'',expected=`Bearer ${process.env.CRON_SECRET||''}`;
@@ -13,6 +14,7 @@ export async function GET(req:Request){
   catch(e){if((e as {code?:number}).code===11000)return json({busy:true},202);return json({error:'تعذر حجز المهام'},503);}
   const now=new Date(),day=now.toISOString().slice(0,10),results:Record<string,unknown>={};
   try{
+    if(process.env.DISCORD_BOT_TOKEN){try{results.discord=await syncDiscordMembers();}catch(e){results.discordError=e instanceof Error?e.message:'تعذرت مزامنة الأعضاء';}}
     const snapshot=await nativeSnapshot();
     await db.collection('mobile_command_receipts').createIndex({expires:1},{expireAfterSeconds:0});
     await db.collection('mobile_backups').createIndex({expires:1},{expireAfterSeconds:0});

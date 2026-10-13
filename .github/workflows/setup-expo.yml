@@ -1,0 +1,71 @@
+name: Set up Expo notifications project
+
+on:
+  workflow_dispatch:
+    inputs:
+      expo_account:
+        description: 'Your Expo account name (without @), which will own the Cookies project'
+        type: string
+        required: true
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: setup-expo
+  cancel-in-progress: false
+
+jobs:
+  setup:
+    name: Create or link Expo project and rebuild the app
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Require the main branch
+        env:
+          SELECTED_BRANCH: ${{ github.ref_name }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          if [ "$SELECTED_BRANCH" != "$DEFAULT_BRANCH" ] || [ "$DEFAULT_BRANCH" != 'main' ]; then
+            echo 'Run this workflow from main so the public project ID reaches the release builds.' >&2
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+        working-directory: mobile
+      - name: Create or link only the selected Expo account
+        env:
+          EXPO_ACCOUNT: ${{ inputs.expo_account }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_NO_TELEMETRY: '1'
+        run: node scripts/setup-expo.mjs "$EXPO_ACCOUNT"
+      - name: Check the final Expo configuration
+        run: npx expo config --type public --json > /dev/null
+        working-directory: mobile
+      - name: Publish the public project ID
+        run: |
+          git add -- mobile/app.json
+          if ! git diff --cached --quiet; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'Link Cookies to the selected Expo project'
+            if ! git push origin HEAD:main; then
+              echo 'main changed during setup or Actions cannot write to main. Run setup again after reviewing the repository settings. The Expo project is already created and will be reused.' >&2
+              exit 1
+            fi
+          fi
+      # GITHUB_TOKEN commits do not trigger push workflows. Dispatch explicitly.
+      - name: Rebuild APK and unsigned IPA with the project ID
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh workflow run build-mobile.yml --ref main -f platform=all

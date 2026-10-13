@@ -1,4 +1,10 @@
-import { priceOf, register, uid, validateSnapshot } from "./domain";
+import {
+  parseChapters,
+  priceOf,
+  register,
+  uid,
+  validateSnapshot,
+} from "./domain";
 import type { Entry, Identity, Snapshot } from "./types";
 export type Command = {
   id?: string;
@@ -139,6 +145,69 @@ export function applyCommand(
       });
       break;
     }
+    case "editRecord": {
+      const entry = s.records.find((e) => e.id === text(p, "id"));
+      if (!entry)
+        throw new Error("السجل غير موجود؛ حدّث البيانات ثم حاول مجددًا");
+      if (["مكافأة", "خصم"].includes(entry.work_type)) {
+        if (p.notes !== undefined) entry.notes = text(p, "notes");
+        if (
+          (p.chapter !== undefined && text(p, "chapter") !== entry.chapter) ||
+          (p.types !== undefined && text(p, "types") !== entry.work_type) ||
+          (p.work !== undefined && text(p, "work") !== entry.work_name)
+        )
+          throw new Error(
+            "لتغيير تسوية مالية، احذفها ثم أضف التسوية الصحيحة من القسم المالي",
+          );
+        break;
+      }
+      const target = text(p, "userId") || entry.userId,
+        person = s.members.find((m) => m.id === target);
+      if (!person) throw new Error("العضو غير موجود");
+      const work = text(p, "work") || entry.work_name,
+        type = text(p, "types") || entry.work_type;
+      const chapter = text(p, "chapter") || entry.chapter;
+      const selectedChapters = parseChapters(chapter);
+      if (selectedChapters.length !== 1)
+        throw new Error("اختر فصلًا واحدًا لتعديل هذا السجل");
+      const parsed = Number(selectedChapters[0]);
+      if (!Number.isFinite(parsed) || parsed < 0)
+        throw new Error("رقم الفصل غير صالح");
+      const canonical = String(parsed),
+        changed =
+          work !== entry.work_name ||
+          type !== entry.work_type ||
+          canonical !== String(Number(entry.chapter));
+      const selected = s.works.find((w) => w.name === work);
+      if (changed) {
+        if (!selected || selected.isolated || selected.active === false)
+          throw new Error("العمل غير متاح للتعديل");
+        if (selected.azora && !verifiedPublication)
+          throw new Error("يتطلب الفصل التحقق من أزورا");
+        if (parsed < (selected.paid_start ?? 0)) throw new Error("الفصل مجاني");
+        entry.total = priceOf(s, selected, type);
+      }
+      if (
+        s.records.some(
+          (e) =>
+            e.id !== entry.id &&
+            e.userId === target &&
+            e.month_key === entry.month_key &&
+            e.work_name === work &&
+            Number(e.chapter) === parsed &&
+            e.work_type === type,
+        )
+      )
+        throw new Error("الفصل والتخصص مسجلان بالفعل لهذا العضو في الشهر نفسه");
+      entry.userId = target;
+      entry.username = person.name;
+      entry.work_name = work;
+      entry.chapter = canonical;
+      entry.work_type = type;
+      if (p.notes !== undefined) entry.notes = text(p, "notes");
+      message = "تم تحديث السجل وإعادة حساب المستحقات";
+      break;
+    }
     case "deleteRecord": {
       const index = s.records.findIndex((e) => e.id === text(p, "id"));
       if (index < 0) throw new Error("السجل غير موجود");
@@ -171,6 +240,7 @@ export function applyCommand(
       if (p.paid_start !== undefined)
         w.paid_start = text(p, "paid_start") ? number(p, "paid_start") : null;
       if (typeof p.isolated === "boolean") w.isolated = p.isolated;
+      if (typeof p.active === "boolean") w.active = p.active;
       break;
     }
     case "deleteWork": {

@@ -55,7 +55,17 @@ export interface MemberDoc {
   _id: string;
   username?: string;
   nickname?: string;
+  globalName?: string | null;
   avatar?: string;
+  joinedAt?: string;
+  firstLoginAt?: string;
+  lastLoginAt?: string;
+  appRegistered?: boolean;
+  isAdmin?: boolean;
+  blocked?: boolean;
+  title?: string;
+  discordSyncedAt?: string;
+  guildPresent?: boolean;
   first_seen?: string;
   last_seen?: string;
 }

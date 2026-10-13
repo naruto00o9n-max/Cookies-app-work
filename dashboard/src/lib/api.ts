@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession, type SessionUser } from "@/lib/session";
+import { validateMemberAccess, MemberAccessError } from "@/lib/discord-members";
 import { logAudit } from "@/lib/audit";
 
 export function json(data: unknown, status = 200) {
@@ -17,12 +18,13 @@ export function forbidden() {
 export async function requireAuth(): Promise<SessionUser | NextResponse> {
   const user = await getSession();
   if (!user) return unauthorized();
-  return user;
+  try { return await validateMemberAccess(user); }
+  catch(e) { return json({error:e instanceof Error?e.message:"تعذر التحقق من العضوية"},e instanceof MemberAccessError?e.status:503); }
 }
 
 export async function requireAdmin(): Promise<SessionUser | NextResponse> {
-  const user = await getSession();
-  if (!user) return unauthorized();
+  const user = await requireAuth();
+  if (isResponse(user)) return user;
   if (!user.isAdmin) return forbidden();
   return user;
 }

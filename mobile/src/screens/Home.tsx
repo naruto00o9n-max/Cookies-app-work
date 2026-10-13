@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { View, Pressable, Text } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation } from "@react-navigation/native";
+import { memberProgress } from "../lib/progression";
 import { Media } from "../components/Media";
 import { useTeam } from "../lib/context";
 import { totalOf, visibleEntries } from "../lib/domain";
@@ -31,6 +32,7 @@ export function Home() {
   const ranking = s.members
     .map((m) => ({ ...m, ...totalOf(visibleEntries(s, m.id)) }))
     .sort((a, b) => b.chapters - a.chapters);
+  const progress = memberProgress(s, user.id);
   const rank = ranking.findIndex((m) => m.id === user.id) + 1;
   return (
     <Page
@@ -128,10 +130,72 @@ export function Home() {
           </View>
         </View>
         <Button
-          title="سجّل إنجازًا جديدًا"
+          title="سجّل فصلًا جديدًا"
           icon="add-circle-outline"
           onPress={() => nav.navigate("Register")}
         />
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => nav.navigate("Detail", { member: user.id })}
+        >
+          <Glass gold style={{ gap: 13 }}>
+            <View style={[styles.row, { gap: 14 }]}>
+              <View
+                style={[
+                  styles.iconBox,
+                  {
+                    width: 58,
+                    height: 58,
+                    borderRadius: 18,
+                    transform: [{ rotate: "-6deg" }],
+                  },
+                ]}
+              >
+                <Icon name="diamond-outline" size={29} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Label size={10} style={{ color: colors.gold }}>
+                  بطاقتك في كوكيز · {progress.tier}
+                </Label>
+                <Heading size={21}>{progress.title}</Heading>
+                <Label dim size={11}>
+                  المستوى {progress.level} ·{" "}
+                  {progress.badges.filter((b) => b.earned).length} أوسمة ·{" "}
+                  {progress.chapters} فصل مختلف
+                </Label>
+              </View>
+            </View>
+            <View
+              style={{
+                height: 6,
+                borderRadius: 6,
+                backgroundColor: "#302B22",
+                overflow: "hidden",
+              }}
+            >
+              <LinearGradient
+                colors={["#9B7133", colors.gold]}
+                style={{
+                  height: 6,
+                  width: `${Math.max(1, progress.progress * 100)}%`,
+                  borderRadius: 6,
+                }}
+              />
+            </View>
+            <Label dim size={10}>
+              {progress.xp} XP · {progress.nextLevelXp - progress.xp} XP للمستوى
+              التالي
+            </Label>
+          </Glass>
+        </Pressable>
+        {user.isAdmin && (
+          <Button
+            title="لوحة الإشراف"
+            secondary
+            icon="shield-checkmark-outline"
+            onPress={() => nav.navigate("Control")}
+          />
+        )}
         <View style={[styles.row, { gap: 12 }]}>
           <View style={styles.mini}>
             <Icon name="gift-outline" size={19} />
@@ -209,6 +273,16 @@ export function Home() {
                 {i > 0 && <View style={styles.divider} />}
                 <Row
                   title={e.work_name}
+                  image={
+                    s.works.find((w) => w.name === e.work_name)?.azora?.cover
+                  }
+                  cover
+                  onPress={() =>
+                    nav.navigate("Detail", {
+                      work: e.work_name,
+                      member: user.id,
+                    })
+                  }
                   detail={`الفصل ${e.chapter} · ${e.work_type.replace(/_/g, " ")}`}
                   icon={
                     e.work_type === "مكافأة"
@@ -220,7 +294,7 @@ export function Home() {
               </View>
             ))
           ) : (
-            <Label dim>قصتك تبدأ بأول فصل. سجّل إنجازك الآن.</Label>
+            <Label dim>قصتك تبدأ بأول فصل. سجّله الآن.</Label>
           )}
         </Glass>
       </View>
