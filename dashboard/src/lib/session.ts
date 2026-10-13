@@ -96,7 +96,8 @@ export async function clearSessionCookie(): Promise<void> {
 export function authConfig() {
   return {
     oauthEnabled: Boolean(process.env.DISCORD_CLIENT_ID && process.env.DISCORD_CLIENT_SECRET),
-    mode: process.env.MONGODB_URI ? ("mongo" as const) : ("demo" as const),
+    mode: "mongo" as const,
+    databaseConfigured: Boolean(process.env.MONGODB_URI),
     guildId: process.env.DISCORD_GUILD_ID || null,
     botLinked: Boolean(process.env.DISCORD_BOT_TOKEN),
   };

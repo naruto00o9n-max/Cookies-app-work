@@ -101,25 +101,32 @@ export class MongoStore implements Store {
   async getSettings(): Promise<SettingsDoc> {
     const doc = (await this.db().collection<BotDocument>("settings").findOne({ _id: "settings" })) as (SettingsDoc & { _id: string }) | null;
     if (doc) {
-      if (!doc.specialties || Object.keys(doc.specialties).length === 0) doc.specialties = { ...DEFAULT_SPECIALTIES };
+      if (!doc.specialties || Object.keys(doc.specialties).length === 0) doc.specialties = structuredClone(DEFAULT_SPECIALTIES);
       if (doc.payment_day === undefined) doc.payment_day = null;
+      this.revisions.set(doc, Number(doc.revision || 0));
       return doc;
     }
-    return {
+    const defaults: SettingsDoc = {
       allowed_channels: [],
       currency: "$",
       notify_channel_id: null,
       alert_threshold: 10.0,
-      specialties: { ...DEFAULT_SPECIALTIES },
+      specialties: structuredClone(DEFAULT_SPECIALTIES),
       payment_day: null,
       payment_hour: 0,
     };
+    this.revisions.set(defaults, 0);
+    return defaults;
   }
 
   async saveSettings(settings: SettingsDoc): Promise<boolean> {
     try {
       const { _id, ...rest } = settings as SettingsDoc & { _id?: string };
-      await this.db().collection<BotDocument>("settings").updateOne({ _id: "settings" }, { $set: rest }, { upsert: true });
+      delete rest.revision;
+      const expected=this.revisions.get(settings);
+      const filter=expected===undefined?{_id:'settings'}:{_id:'settings',...(expected===0?{$or:[{revision:0},{revision:{$exists:false}}]}:{revision:expected})};
+      const result=await this.db().collection<BotDocument>('settings').updateOne(filter,{$set:rest,$inc:{revision:1}},{upsert:expected===undefined||expected===0});
+      if(!result.matchedCount&&!result.upsertedCount)return false;
       return true;
     } catch (e) {
       console.error("[ERROR] saveSettings:", e);

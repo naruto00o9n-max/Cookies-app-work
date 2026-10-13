@@ -1,9 +1,10 @@
 import { getStore } from "@/lib/store";
 import { buildOverview } from "@/lib/agg";
-import { json } from "@/lib/api";
+import { json,requireAuth,isResponse } from "@/lib/api";
 
 /** إحصائيات عامة لصفحة الهبوط — أرقام مجمّعة فقط بلا أي بيانات أعضاء */
 export async function GET() {
+  const user=await requireAuth();if(isResponse(user))return user;
   try {
     const store = getStore();
     const ov = await buildOverview(store, store.mode);

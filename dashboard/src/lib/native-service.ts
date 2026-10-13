@@ -18,11 +18,11 @@ export function toSnapshot(records: Record<string, RecordEntry[]>, works: Snapsh
   const defaults=emptySnapshot();
   return {
     version:1,
-    records:Object.entries(records).flatMap(([userId, entries])=>entries.map((e,index)=>({...e,userId,id:crypto.createHash('sha256').update(JSON.stringify([userId,e.work_name,e.chapter,e.work_type,e.timestamp,index])).digest('hex')}))),
+    records:Object.entries(records).flatMap(([userId, entries])=>entries.map((e,index)=>({...e,month_key:e.month_key||e.timestamp?.slice(0,7)||'unknown',userId,id:crypto.createHash('sha256').update(JSON.stringify([userId,e.work_name,e.chapter,e.work_type,e.timestamp,index])).digest('hex')}))),
     works, specialties:settings.specialties || defaults.specialties,
     settings:{...defaults.settings,...settings,active_month:settings.active_month || defaults.settings.active_month},
     members:[...new Set([...members.map(m=>String(m._id)),...Object.keys(records)])].map(id=>{const m=members.find(m=>String(m._id)===id);return {id,name:m?.nickname||m?.username||records[id]?.find(e=>e.username)?.username||id,avatar:m?.avatar};}),
-    months:months.length?months.map(m=>({key:String(m._id),name:m.name||String(m._id)})):defaults.months,
+    months:[...new Set([settings.active_month||defaults.settings.active_month,...months.map(m=>String(m._id)),...Object.values(records).flatMap(list=>list.map(e=>e.month_key||e.timestamp?.slice(0,7))).filter(key=>key&&/^\d{4}-(0[1-9]|1[0-2])$/.test(key))])].map(key=>({key,name:months.find(m=>String(m._id)===key)?.name||key})),
     audit:audit.map(a=>({id:String(a._id||a.timestamp),action:a.action,details:a.details||'',timestamp:a.timestamp,moderator_id:a.moderator_id||''})),
   };
 }
@@ -49,8 +49,8 @@ async function writeMongo(db: Db, s: Snapshot, session: ClientSession, action: s
   // A single Atlas transaction keeps records, prices, work names and months consistent.
   await db.collection('records').updateOne({_id:'records' as never},{$set:{data:recordsOf(s)},$inc:{revision:1}},opts);
   await db.collection('records').updateOne({_id:'works' as never},{$set:{data:s.works},$inc:{revision:1}},opts);
-  const settings={...s.settings,specialties:s.specialties} as Document; delete settings._id;
-  await db.collection('settings').updateOne({_id:'settings' as never},{$set:settings},opts);
+  const settings={...s.settings,specialties:s.specialties} as Document; delete settings._id; delete settings.revision;
+  await db.collection('settings').updateOne({_id:'settings' as never},{$set:settings,$inc:{revision:1}},opts);
   for(const m of s.months) await db.collection('months').updateOne({_id:m.key as never},{$set:{name:m.name}},opts);
   if(action==='deleteMonth'||action==='import') await db.collection('months').deleteMany({_id:{$nin:s.months.map(m=>m.key) as never}},{session});
   if(action==='import') for(const m of s.members) await db.collection('members').updateOne({_id:m.id as never},{$set:{username:m.name,avatar:m.avatar}},opts);
