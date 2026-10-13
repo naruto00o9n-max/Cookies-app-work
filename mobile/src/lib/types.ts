@@ -17,7 +17,14 @@ export type Work = {
   active?: boolean;
   paid_start?: number | null;
   custom_prices?: Record<string, number>;
-  azora?: { slug: string };
+  azora?: {
+    slug: string;
+    cover?: string;
+    title?: string;
+    description?: string;
+    latestChapter?: string;
+    chapterCount?: number;
+  };
 };
 export type Member = { id: string; name: string; avatar?: string };
 export type Audit = {
@@ -47,6 +54,7 @@ export type Identity = {
   id: string;
   name: string;
   isAdmin: boolean;
+  avatar?: string;
 };
 export type Totals = {
   chapters: number;

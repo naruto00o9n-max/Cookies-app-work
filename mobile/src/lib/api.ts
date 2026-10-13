@@ -3,10 +3,9 @@ import * as WebBrowser from "expo-web-browser";
 import { Platform } from "react-native";
 import type { Identity, Snapshot } from "./types";
 WebBrowser.maybeCompleteAuthSession();
-export const server = (process.env.EXPO_PUBLIC_API_URL || "https://cookies-app-work.vercel.app").replace(
-  /\/$/,
-  "",
-);
+export const server = (
+  process.env.EXPO_PUBLIC_API_URL || "https://cookies-app-work.vercel.app"
+).replace(/\/$/, "");
 export async function request<T>(
   path: string,
   token?: string,
@@ -75,6 +74,12 @@ export async function discordLogin(): Promise<{
 }
 export type StateResponse = {
   snapshot: Snapshot;
-  user: { id: string; username: string; globalName?: string; isAdmin: boolean };
+  user: {
+    id: string;
+    username: string;
+    globalName?: string;
+    avatar?: string;
+    isAdmin: boolean;
+  };
   mode: string;
 };

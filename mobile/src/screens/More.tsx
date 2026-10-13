@@ -4,7 +4,7 @@ import { View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useTeam } from "../lib/context";
 import { paymentCSV, totalOf, visibleEntries } from "../lib/domain";
-import { enableNotifications } from "../lib/notifications";
+import { usePush } from "../components/NotificationCenter";
 import { shareFile, pickBackup, shareBytes } from "../lib/files";
 import {
   Page,
@@ -19,6 +19,7 @@ import {
 } from "../components/ui";
 export function More() {
   const { snapshot: s, user, logout, execute, offline, call } = useTeam();
+  const { enable, enabled, busy: pushBusy } = usePush();
   const nav = useNavigation<any>();
   if (!s || !user) return null;
   const backup = () => {
@@ -57,6 +58,8 @@ export function More() {
         <Glass gold>
           <Row
             title={user.name}
+            image={user.avatar}
+            onPress={() => nav.navigate("Detail", { member: user.id })}
             detail={user.isAdmin ? "مشرف مساحة كوكيز" : "عضو فريق كوكيز"}
             icon="person-circle-outline"
           />
@@ -82,13 +85,15 @@ export function More() {
           />
           <View style={styles.divider} />
           <Row
-            title="تفعيل إشعارات الفريق"
+            title={enabled ? "إشعارات الفريق مفعّلة" : "تفعيل إشعارات الفريق"}
+            detail={
+              pushBusy
+                ? "جارٍ ربط الجهاز…"
+                : "فصول أعمالك، المستحقات وتحديثات الفريق"
+            }
             icon="notifications-outline"
             onPress={() => {
-              void enableNotifications()
-                .then((token) => call("/api/mobile/devices", { token }))
-                .then(() => Alert.alert("الإشعارات", "تم تفعيل إشعارات الفريق"))
-                .catch((e) => Alert.alert("الإشعارات", e.message));
+              if (!pushBusy) void enable();
             }}
           />
           <View style={styles.divider} />

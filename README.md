@@ -20,3 +20,5 @@ npm start
 - [نقل الأوامر والبيانات والمهام الدورية](docs/MOBILE-MIGRATION.md)
 - [بناء APK وIPA](docs/GITHUB-BUILDS.md)
 - [إعداد Vercel والأسرار يدويًا](docs/VERCEL-SETUP.md)
+
+- [إعداد الإشعارات وتفاصيل الأعضاء والأعمال](docs/NOTIFICATIONS.md)

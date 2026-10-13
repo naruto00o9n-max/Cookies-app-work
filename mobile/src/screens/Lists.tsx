@@ -69,6 +69,8 @@ export function Works() {
             <Glass key={w.name}>
               <Row
                 title={w.name}
+                image={w.azora?.cover}
+                cover
                 detail={`${t.chapters} فصل · ${new Set(entries.map((e) => e.userId)).size} مساهم · ${w.isolated ? "معزول" : w.azora ? "مرتبط بأزورا" : "نشط"}`}
                 icon="albums-outline"
                 onPress={() => nav.navigate("Detail", { work: w.name })}
@@ -176,7 +178,9 @@ export function Records() {
                     ? "remove-circle-outline"
                     : "document-text-outline"
               }
-              detail={`${e.username} · ${e.work_type.replace(/_/g, " ")} · ${e.chapter === "-" ? "تسوية" : `فصل ${e.chapter}`}`}
+              image={s.works.find((w) => w.name === e.work_name)?.azora?.cover}
+              cover
+              detail={`${s.members.find((m) => m.id === e.userId)?.name || e.username} · ${e.work_type.replace(/_/g, " ")} · ${e.chapter === "-" ? "تسوية" : `فصل ${e.chapter}`}`}
               right={`${s.settings.currency}${e.total.toFixed(3)}`}
             />
             <Label dim size={10}>
@@ -254,6 +258,7 @@ export function Team() {
         {members.map((m, i) => (
           <Glass key={m.id} gold={i === 0}>
             <Row
+              image={m.avatar}
               title={`${i < 3 ? ["🥇", "🥈", "🥉"][i] : `${i + 1}.`} ${m.name}`}
               detail={`${m.chapters} فصل · ${m.works} أعمال`}
               icon="person-outline"
@@ -267,95 +272,4 @@ export function Team() {
     </Page>
   );
 }
-export function Detail({ route }: { route: any }) {
-  const { snapshot: s, user } = useTeam();
-  const nav = useNavigation<any>();
-  if (!s) return null;
-  const work = route.params?.work,
-    member = route.params?.member;
-  const list = s.records.filter(
-    (e) =>
-      (!work || e.work_name === work) &&
-      (!member || e.userId === member) &&
-      e.month_key === s.settings.active_month,
-  );
-  const total = totalOf(list);
-  const w = s.works.find((w) => w.name === work);
-  return (
-    <Page>
-      <View style={styles.stack}>
-        <Heading>
-          {work || s.members.find((m) => m.id === member)?.name || "التفاصيل"}
-        </Heading>
-        <Glass gold>
-          <Heading size={30}>
-            {s.settings.currency}
-            {total.amount.toFixed(3)}
-          </Heading>
-          <Label dim>
-            {total.chapters} فصل · {total.works} أعمال · الشهر{" "}
-            {s.settings.active_month}
-          </Label>
-        </Glass>
-        {work && user?.isAdmin && (
-          <>
-            <Button
-              title="إدارة العمل"
-              secondary
-              onPress={() =>
-                nav.navigate("AdminForm", { kind: "editWork", work })
-              }
-            />
-            <Button
-              title={w?.isolated ? "استرجاع العمل" : "عزل العمل"}
-              secondary
-              onPress={() =>
-                nav.navigate("AdminForm", {
-                  kind: "isolate",
-                  work,
-                  isolated: !w?.isolated,
-                })
-              }
-            />
-            <Button
-              title="إدارة التخصيصات"
-              secondary
-              onPress={() =>
-                nav.navigate("AdminForm", { kind: "customPrice", work })
-              }
-            />
-          </>
-        )}
-        <Glass>
-          {Object.entries(
-            list.reduce(
-              (a, e) => {
-                a[e.work_type] = (a[e.work_type] || 0) + 1;
-                return a;
-              },
-              {} as Record<string, number>,
-            ),
-          ).map(([type, count]) => (
-            <Row
-              key={type}
-              title={type.replace(/_/g, " ")}
-              right={`${count} سجل`}
-            />
-          ))}
-        </Glass>
-        {list
-          .sort((a, b) => Number(a.chapter) - Number(b.chapter))
-          .map((e) => (
-            <Glass key={e.id}>
-              <Row
-                title={`الفصل ${e.chapter} · ${e.work_type}`}
-                detail={`${e.username}${e.notes ? " · " + e.notes : ""}`}
-                right={`${s.settings.currency}${e.total.toFixed(3)}`}
-              />
-            </Glass>
-          ))}
-        {!list.length && <Empty />}
-      </View>
-    </Page>
-  );
-}
+export { Detail } from "./Detail";

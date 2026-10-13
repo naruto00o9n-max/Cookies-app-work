@@ -15,10 +15,6 @@ export async function GET(req:Request){
   try{
     const snapshot=await nativeSnapshot();
     await db.collection('mobile_command_receipts').createIndex({expires:1},{expireAfterSeconds:0});
-    for(const message of await db.collection('mobile_outbox').find({sent:false}).limit(100).toArray()){
-      await sendTeamPush(message.title,message.body,message.userId);
-      await db.collection('mobile_outbox').updateOne({_id:message._id},{$set:{sent:true,sent_at:now}});
-    }
     await db.collection('mobile_backups').createIndex({expires:1},{expireAfterSeconds:0});
     await db.collection('mobile_backups').updateOne({_id:day as never},{$setOnInsert:{snapshot,created_at:now,expires:new Date(+now+30*86400000)}},{upsert:true});results.backup=day;
     // Called every ten minutes: prior-day and due-day reminders. The marker prevents repeated sends.
@@ -30,6 +26,10 @@ export async function GET(req:Request){
       if(!existing){await sendTeamPush('موعد مستحقات كوكيز',hours>=0?'اقترب موعد الدفع. راجع أعمالك ومستحقاتك.':'حان موعد الدفع. تقرير الفريق جاهز في التطبيق.');await db.collection('mobile_job_markers').updateOne({_id:marker as never},{$set:{sent_at:now}},{upsert:true});results.reminder=true;}
     }
     try{results.azora=await syncAzora();}catch(e){results.azoraError=e instanceof Error?e.message:'تعذرت مزامنة أزورا';await db.collection('azora').updateOne({_id:'state' as never},{$set:{last_sync_ok:false,last_error:results.azoraError,last_sync_at:now.toISOString()}},{upsert:true});}
+    for(const message of await db.collection('mobile_outbox').find({sent:false}).limit(100).toArray()){
+      await sendTeamPush(message.title,message.body,message.userId,message.data);
+      await db.collection('mobile_outbox').updateOne({_id:message._id},{$set:{sent:true,sent_at:now}});
+    }
     return json(results);
   }catch{return json({error:'تعذر تشغيل المهام الدورية'},503);}
   finally{await db.collection('mobile_job_lock').deleteOne({_id:'jobs' as never,owner});}

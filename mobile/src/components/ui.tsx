@@ -16,6 +16,7 @@ import {
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { Media } from "./Media";
 import * as Haptics from "expo-haptics";
 export const colors = {
   bg: "#08090D",
@@ -301,6 +302,8 @@ export function Row({
   onPress,
   right,
   danger = false,
+  image,
+  cover = false,
 }: {
   title: string;
   detail?: string;
@@ -308,6 +311,8 @@ export function Row({
   onPress?: () => void;
   right?: string;
   danger?: boolean;
+  image?: string;
+  cover?: boolean;
 }) {
   return (
     <Pressable
@@ -318,10 +323,14 @@ export function Row({
         { paddingVertical: 15, gap: 14, opacity: pressed ? 0.75 : 1 },
       ]}
     >
-      {icon && (
-        <View style={styles.iconBox}>
-          <Icon name={icon} color={danger ? colors.red : colors.gold} />
-        </View>
+      {image ? (
+        <Media uri={image} name={title} size={44} cover={cover} />
+      ) : (
+        icon && (
+          <View style={styles.iconBox}>
+            <Icon name={icon} color={danger ? colors.red : colors.gold} />
+          </View>
+        )
       )}
       <View style={{ flex: 1, gap: 2 }}>
         <Label style={danger ? { color: colors.red } : undefined}>

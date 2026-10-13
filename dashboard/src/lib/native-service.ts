@@ -31,9 +31,12 @@ async function readMongo(db: Db, session?: ClientSession) {
   const w=await db.collection('records').findOne({_id:'works' as never},{session});
   const settings=await db.collection('settings').findOne({_id:'settings' as never},{session});
   const members=await db.collection('members').find({},{session}).toArray();
+  const azoraCache=await db.collection('azora').findOne({_id:'cache' as never},{session});
+  const published=await db.collection('azora').findOne({_id:'chapters' as never},{session});
+  const enrichedWorks=(w?.data||[]).map((work: Snapshot['works'][number])=>{if(!work.azora?.slug)return work;const post=azoraCache?.works?.[work.azora.slug],chapters=published?.data?.[work.azora.slug];return {...work,azora:{...work.azora,cover:work.azora.cover||post?.featuredImage,description:work.azora.description||(post?.postContent||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim(),latestChapter:work.azora.latestChapter||(chapters?.numbers?.length?String(Math.max(...chapters.numbers.map(Number))):undefined),chapterCount:work.azora.chapterCount??chapters?.numbers?.length}};});
   const months=await db.collection('months').find({},{session}).toArray();
   const audit=await db.collection('audit_log').find({},{session}).sort({timestamp:-1}).limit(1000).toArray();
-  return toSnapshot(r?.data||{},w?.data||[],settings||{},members,months,audit);
+  return toSnapshot(r?.data||{},enrichedWorks,settings||{},members,months,audit);
 }
 export async function nativeSnapshot() {
   const db=nativeDb(); if(!db)throw new Error('لم يتم إعداد قاعدة بيانات الفريق');
@@ -68,13 +71,14 @@ export async function nativeCommand(command: Command, user: SessionUser) {
       if(receiptKey){const prior=await db.collection('mobile_command_receipts').findOne({_id:receiptKey as never},{session});if(prior)return prior.result;}
       const s=await readMongo(db,session);
       await verifyPublication(s,command,db,session);
-      const result=applyCommand(s,command,{id:user.id,name:user.username,isAdmin:user.isAdmin},true);
+      const result=applyCommand(s,command,{id:user.id,name:user.globalName||user.username,isAdmin:user.isAdmin},true);
       await writeMongo(db,s,session,command.action);
       if(receiptKey)await db.collection('mobile_command_receipts').insertOne({_id:receiptKey as never,result,created_at:new Date(),expires:new Date(Date.now()+7*86400000)},{session});
       if(command.action==='register'){
         const target=String(command.payload.userId),total=s.records.filter(e=>e.userId===target&&e.month_key===s.settings.active_month).reduce((a,e)=>a+e.total,0);
-        if(total>=s.settings.alert_threshold)await db.collection('mobile_outbox').insertOne({userId:target,title:'إنجازاتك تصنع فرقًا',body:`وصل إجمالي شغلك إلى ${s.settings.currency}${total.toFixed(3)}`,created_at:new Date(),sent:false},{session});
+        if(s.settings.alert_threshold>0&&total>=s.settings.alert_threshold)await db.collection('mobile_outbox').updateOne({_id:`threshold:${s.settings.active_month}:${target}` as never},{$setOnInsert:{userId:target,title:'إنجازاتك تصنع فرقًا',body:`وصل إجمالي شغلك إلى ${s.settings.currency}${total.toFixed(3)}`,data:{screen:'Reports'},created_at:new Date(),sent:false}},{session,upsert:true});
       }
+      if(command.action==='adjustment')await db.collection('mobile_outbox').insertOne({userId:String(command.payload.userId),title:command.payload.kind==='مكافأة'?'مكافأة جديدة لك ✦':'تحديث على مستحقاتك',body:`${command.payload.kind}: ${s.settings.currency}${Number(command.payload.amount).toFixed(3)}${command.payload.notes?' · '+String(command.payload.notes):''}`,data:{screen:'Reports'},created_at:new Date(),sent:false},{session});
       return result;
     }));
   }

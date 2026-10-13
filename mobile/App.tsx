@@ -1,6 +1,12 @@
 import React from "react";
+import * as Notifications from "expo-notifications";
+import { NotificationCenter } from "./src/components/NotificationCenter";
 import { View, ActivityIndicator } from "react-native";
-import { NavigationContainer, DarkTheme } from "@react-navigation/native";
+import {
+  NavigationContainer,
+  DarkTheme,
+  createNavigationContainerRef,
+} from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -25,6 +31,7 @@ import {
 } from "./src/screens/More";
 import { Specialties, AdminForm } from "./src/screens/Admin";
 import { Azora } from "./src/screens/Azora";
+const notificationNav = createNavigationContainerRef<any>();
 const Stack = createNativeStackNavigator(),
   Tabs = createBottomTabNavigator();
 const theme = {
@@ -39,6 +46,34 @@ const theme = {
   },
 };
 function Main() {
+  React.useEffect(() => {
+    let active = true;
+    let lastId = "";
+    const open = (response: Notifications.NotificationResponse | null) => {
+      if (!active || !response) return;
+      if (!notificationNav.isReady()) {
+        setTimeout(() => open(response), 300);
+        return;
+      }
+      const id = response.notification.request.identifier;
+      if (lastId === id) return;
+      lastId = id;
+      const data = response.notification.request.content.data || {};
+      if (typeof data.work === "string")
+        notificationNav.navigate("Detail", {
+          work: data.work,
+          chapter: data.chapter,
+        });
+      else if (data.screen === "Reports") notificationNav.navigate("Reports");
+      void Notifications.clearLastNotificationResponseAsync();
+    };
+    const sub = Notifications.addNotificationResponseReceivedListener(open);
+    void Notifications.getLastNotificationResponseAsync().then(open);
+    return () => {
+      active = false;
+      sub.remove();
+    };
+  }, []);
   return (
     <Tabs.Navigator
       screenOptions={{
@@ -113,7 +148,7 @@ function Screens() {
     );
   if (!user || !snapshot) return <Login />;
   return (
-    <NavigationContainer theme={theme}>
+    <NavigationContainer ref={notificationNav} theme={theme}>
       <Stack.Navigator
         screenOptions={{
           headerStyle: { backgroundColor: colors.bg },

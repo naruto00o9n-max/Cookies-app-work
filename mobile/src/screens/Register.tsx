@@ -16,12 +16,12 @@ import {
   colors,
   Empty,
 } from "../components/ui";
-export function Register() {
+export function Register({ route }: { route: any }) {
   const { snapshot: s, user, execute, offline } = useTeam();
   const nav = useNavigation<any>();
-  const [work, setWork] = useState(""),
+  const [work, setWork] = useState(route.params?.work || ""),
     [type, setType] = useState(""),
-    [chapters, setChapters] = useState(""),
+    [chapters, setChapters] = useState(route.params?.chapter || ""),
     [mixed, setMixed] = useState(""),
     [notes, setNotes] = useState(""),
     [target, setTarget] = useState(user?.id || ""),

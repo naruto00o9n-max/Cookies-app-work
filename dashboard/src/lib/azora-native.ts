@@ -1,4 +1,5 @@
-import {sendTeamPush} from './push';
+import crypto from 'node:crypto';
+import {newPublishedChapters,workRecipients,azoraMetadata} from './azora-events';
 import { nativeDb } from './native-service';
 import { MongoClient } from 'mongodb';
 const BASE='https://api.azorafly.com';
@@ -38,22 +39,42 @@ export async function syncAzora() {
   const workDoc=await db.collection('records').findOne({_id:'works' as never});
   const linked=(workDoc?.data||[]).filter((w:any)=>w.azora?.slug);
   const previous=await db.collection('azora').findOne({_id:'chapters' as never});
-  const announcements:string[]=[];
+  const freshBySlug:Record<string,string[]>={};
+  const metadata:Record<string,ReturnType<typeof azoraMetadata>>={};
   const chapterCache:Record<string,any>={};
   // Network work precedes the short database transaction.
-  for(const w of linked){const post=await get(`/api/post?postSlug=${encodeURIComponent(w.azora.slug)}`);const id=post.post?.id;if(!id)throw new Error(`لم يُعثر على ${w.name}`);const payload=await get(`/api/chapters?postId=${Number(id)}`);const chapters=chaptersFrom(payload);const old=previous?.data?.[w.azora.slug];if(old&&Array.isArray(old.numbers)&&old.numbers.length){const max=Math.max(...old.numbers.map(Number));const fresh=chapters.filter(ch=>Number(ch.number)>max);if(fresh.length)announcements.push(`${w.name}: ${fresh.length} فصل جديد`);}
-  chapterCache[w.azora.slug]={numbers:chapters.map(ch=>ch.number),chapters,count:chapters.length,updated_at:new Date().toISOString(),last_fetch:new Date().toISOString()};}
+  for(const w of linked){
+    const result=await get(`/api/post?postSlug=${encodeURIComponent(w.azora.slug)}`);
+    const post=result.post,id=post?.id;if(!id)throw new Error(`لم يُعثر على ${w.name}`);
+    const payload=await get(`/api/chapters?postId=${Number(id)}`),chapters=chaptersFrom(payload);
+    const old=previous?.data?.[w.azora.slug];
+    freshBySlug[w.azora.slug]=newPublishedChapters(Array.isArray(old?.numbers)?old.numbers:undefined,chapters);
+    metadata[w.azora.slug]=azoraMetadata(post,chapters);
+    chapterCache[w.azora.slug]={numbers:chapters.map(ch=>ch.number),chapters,count:chapters.length,updated_at:new Date().toISOString(),last_fetch:new Date().toISOString()};
+  }
   const mongo=new MongoClient(process.env.MONGODB_URI!);await mongo.connect();let added=0;
   try {await mongo.withSession(session=>session.withTransaction(async()=>{
     const database=mongo.db(process.env.MONGODB_DB_NAME||'work_bot'),opts={session,upsert:true};
     const latest=await database.collection('records').findOne({_id:'works' as never},{session});const works=latest?.data||[];added=0;
     if(state.auto_add_new_works!==false)for(const post of posts){const name=String(post.postTitle||post.title||post.slug);if(!works.some((w:any)=>w.azora?.slug===post.slug||w.name===name)){works.push({name,active:true,paid_start:null,azora:{slug:post.slug,post_id:post.id,title_en:name,cover:post.featuredImage,linked_at:new Date().toISOString()}});added++;}}
-    if(added)await database.collection('records').updateOne({_id:'works' as never},{$set:{data:works},$inc:{revision:1}},opts);
+    for(const work of works)if(work.azora?.slug&&metadata[work.azora.slug])work.azora={...work.azora,...metadata[work.azora.slug]};
+    if(added||Object.keys(metadata).length)await database.collection('records').updateOne({_id:'works' as never},{$set:{data:works},$inc:{revision:1}},opts);
+    const recordDoc=await database.collection('records').findOne({_id:'records' as never},{session});
+    for(const work of works){
+      if(!work.azora?.slug)continue;
+      if(state.announcements_enabled===false)continue;
+      for(const chapter of freshBySlug[work.azora.slug]||[]){
+        for(const userId of workRecipients(recordDoc?.data||{},work,chapter)){
+          const eventId=crypto.createHash('sha256').update(JSON.stringify(['azora',work.azora.slug,chapter,userId])).digest('hex');
+          await database.collection('mobile_outbox').updateOne({_id:eventId as never},{$setOnInsert:{userId,title:'فصل جديد بانتظارك ✦',body:`نُشر الفصل ${chapter} من «${work.name}» على أزورا. يمكنك تسجيل إنجازك الآن.`,data:{screen:'Detail',work:work.name,chapter},created_at:new Date(),sent:false}},opts);
+        }
+      }
+    }
     const priorCache=listingError?await database.collection('azora').findOne({_id:'cache' as never},{session}):null;
     await database.collection('azora').updateOne({_id:'cache' as never},{$set:{works:listingError?{...Object.fromEntries(posts.map(p=>[p.slug,p])),...(priorCache?.works||{})}:Object.fromEntries(posts.map(p=>[p.slug,p]))}},opts);
     if(Object.keys(chapterCache).length)await database.collection('azora').updateOne({_id:'chapters' as never},{$set:Object.fromEntries(Object.entries(chapterCache).map(([key,v])=>[`data.${key}`,v]))},opts);
     await database.collection('azora').updateOne({_id:'state' as never},{$set:{team_id:teamId,last_sync_at:new Date().toISOString(),last_sync_ok:true,last_error:null,posts_source:listingError?'ssr':'api'},$inc:{auto_added_count:added}},opts);
   }));}finally{await mongo.close();}
-  if(announcements.length&&state.announcements_enabled!==false)await sendTeamPush('فصول جديدة على أزورا',announcements.slice(0,5).join(' · '));
+
   return {message:`تمت مزامنة ${posts.length} عمل و${linked.length} عمل مرتبط، وإضافة ${added} عمل`};
 }

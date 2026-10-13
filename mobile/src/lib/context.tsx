@@ -6,6 +6,8 @@ import React, {
   useCallback,
   useRef,
 } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { DEVICE_TOKEN_KEY } from "./notifications";
 import { AppState } from "react-native";
 import { uid } from "./domain";
 import { type Command } from "./commands";
@@ -51,7 +53,13 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
       if (!mounted.current) return;
       const identity = {
         id: data.user.id,
-        name: data.user.globalName || data.user.username,
+        name:
+          data.snapshot.members.find((m) => m.id === data.user.id)?.name ||
+          data.user.globalName ||
+          data.user.username,
+        avatar:
+          data.snapshot.members.find((m) => m.id === data.user.id)?.avatar ||
+          data.user.avatar,
         isAdmin: data.user.isAdmin,
       };
       setSnapshot(data.snapshot);
@@ -114,6 +122,7 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
     }
   };
   const logout = async () => {
+    device.current ||= await AsyncStorage.getItem(DEVICE_TOKEN_KEY);
     if (device.current && token.current) {
       try {
         await request("/api/mobile/devices", token.current, {
@@ -123,6 +132,7 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
       } catch {}
     }
     device.current = null;
+    await AsyncStorage.removeItem(DEVICE_TOKEN_KEY);
     pending.current.clear();
     token.current = null;
     await removeToken();

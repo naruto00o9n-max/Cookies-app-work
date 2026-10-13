@@ -22,7 +22,7 @@ type Data = {
     last_sync_at?: string;
     last_error?: string;
   };
-  posts: { slug: string; postTitle: string }[];
+  posts: { slug: string; postTitle: string; featuredImage?: string }[];
 };
 export function Azora() {
   const { snapshot: s, user, call, execute, refresh } = useTeam();
@@ -138,6 +138,8 @@ export function Azora() {
             <Glass key={w.name}>
               <Row
                 title={w.name}
+                image={w.azora?.cover}
+                cover
                 detail={w.azora!.slug}
                 icon="link-outline"
                 onPress={() =>
@@ -174,6 +176,8 @@ export function Azora() {
           <Glass key={p.slug}>
             <Row
               title={p.postTitle || p.slug}
+              image={p.featuredImage}
+              cover
               detail={p.slug}
               icon="book-outline"
               onPress={() => setSlug(p.slug)}

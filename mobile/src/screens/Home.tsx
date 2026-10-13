@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { View, Pressable, Text } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation } from "@react-navigation/native";
+import { Media } from "../components/Media";
 import { useTeam } from "../lib/context";
 import { totalOf, visibleEntries } from "../lib/domain";
 import {
@@ -48,7 +49,7 @@ export function Home() {
             <Heading size={29}>لنصنع فصلًا جديدًا</Heading>
           </View>
           <View style={styles.iconBox}>
-            <Icon name="sparkles-outline" />
+            <Media uri={user.avatar} name={user.name} size={44} />
           </View>
         </View>
         <View style={[styles.row, { gap: 7 }]}>

@@ -3,7 +3,7 @@
     "name": "Cookies",
     "slug": "cookies-team",
     "scheme": "cookiestracker",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/icon.png",
@@ -23,7 +23,12 @@
       "expo-font",
       "expo-web-browser",
       "expo-sharing",
-      "expo-notifications"
+      [
+        "expo-notifications",
+        {
+          "mode": "production"
+        }
+      ]
     ],
     "web": {
       "bundler": "metro",

@@ -79,16 +79,24 @@ export async function GET(req: Request) {
       }
     }
 
+    const membershipRes = await fetch(`${DISCORD_API}/users/@me/guilds/${process.env.DISCORD_GUILD_ID}/member`, { headers });
+    if (!membershipRes.ok) throw new Error(`member profile ${membershipRes.status}; sign in again to grant guilds.members.read`);
+    const membership = await membershipRes.json() as { nick?: string | null; avatar?: string | null };
+    const avatarHash = membership.avatar || dUser.avatar;
+    const avatarBase = membership.avatar
+      ? `https://cdn.discordapp.com/guilds/${process.env.DISCORD_GUILD_ID}/users/${dUser.id}/avatars`
+      : `https://cdn.discordapp.com/avatars/${dUser.id}`;
+    const avatar = avatarHash
+      ? `${avatarBase}/${avatarHash}.${avatarHash.startsWith("a_") ? "gif" : "png"}?size=256`
+      : `https://cdn.discordapp.com/embed/avatars/${Number((BigInt(dUser.id) >> BigInt(22)) % BigInt(6))}.png`;
     const user = {
       id: dUser.id,
       username: dUser.username,
-      globalName: dUser.global_name || undefined,
-      avatar: dUser.avatar
-        ? `https://cdn.discordapp.com/avatars/${dUser.id}/${dUser.avatar}.${dUser.avatar.startsWith("a_") ? "gif" : "png"}?size=128`
-        : undefined,
+      globalName: membership.nick || dUser.global_name || dUser.username,
+      avatar,
       isAdmin,
     };
-    await getStore().upsertMember(user.id, { username: user.username, avatar: user.avatar });
+    await getStore().upsertMember(user.id, { username: user.username, nickname: membership.nick || dUser.global_name || dUser.username, avatar: user.avatar });
     if (challenge) {
       const grant = await issueGrant(user, challenge);
       return NextResponse.redirect(`cookiestracker://auth?code=${encodeURIComponent(grant)}`);

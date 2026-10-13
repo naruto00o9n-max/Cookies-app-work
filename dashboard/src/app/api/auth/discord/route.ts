@@ -26,7 +26,7 @@ export async function GET(req: Request) {
     client_id: clientId,
     redirect_uri: redirectUri(req),
     response_type: "code",
-    scope: "identify guilds",
+    scope: "identify guilds guilds.members.read",
     state,
     prompt: "consent",
   });
