@@ -33,6 +33,12 @@
     "web": {
       "bundler": "metro",
       "favicon": "./assets/favicon.png"
+    },
+    "owner": "zeus313",
+    "extra": {
+      "eas": {
+        "projectId": "54087d37-25eb-4485-9a4d-58c8af5c121a"
+      }
     }
   }
 }
