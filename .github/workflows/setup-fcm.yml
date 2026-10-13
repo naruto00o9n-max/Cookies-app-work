@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/setup-fcm.yml'
       - 'scripts/setup-fcm.mjs'
+      - 'scripts/check-ios-push.mjs'
       - 'scripts/firebase-files.mjs'
       - 'scripts/firebase-project.json'
   workflow_dispatch:
@@ -52,6 +53,11 @@ jobs:
           GOOGLE_SERVICES_FILE: ${{ runner.temp }}/google-services.json
           EAS_CLI_ROOT: ${{ runner.temp }}/cookies-eas/node_modules/eas-cli
         run: node scripts/setup-fcm.mjs
+      - name: Inspect iOS push readiness without changing Apple credentials
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EAS_CLI_ROOT: ${{ runner.temp }}/cookies-eas/node_modules/eas-cli
+        run: node scripts/check-ios-push.mjs
       - name: Build Android with Firebase SDK configuration
         if: github.event_name == 'workflow_dispatch' && inputs.rebuild_android
         env:
