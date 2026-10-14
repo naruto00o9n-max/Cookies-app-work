@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000",
-    "build": "node scripts/check-discord.mjs && next build && mkdir -p .next/standalone/dashboard/.next && cp -r .next/static .next/standalone/dashboard/.next/ && cp -r public .next/standalone/dashboard/",
+    "build": "node scripts/build-team-web.mjs && node scripts/check-discord.mjs && next build && mkdir -p .next/standalone/dashboard/.next && cp -r .next/static .next/standalone/dashboard/.next/ && cp -r public .next/standalone/dashboard/",
     "start": "NODE_ENV=production node .next/standalone/dashboard/server.js",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "build:web": "node scripts/build-team-web.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -74,6 +75,7 @@
     "tailwindcss-animate": "^1.0.7",
     "uuid": "^11.1.0",
     "vaul": "^1.1.2",
+    "web-push": "^3.6.7",
     "z-ai-web-dev-sdk": "^0.0.18",
     "zod": "^4.0.2",
     "zustand": "^5.0.6"
@@ -82,6 +84,7 @@
     "@tailwindcss/postcss": "^4",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/web-push": "^3.6.4",
     "bun-types": "^1.3.4",
     "eslint": "^9",
     "eslint-config-next": "^16.1.1",

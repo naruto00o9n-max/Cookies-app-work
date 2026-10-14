@@ -1,3 +1,4 @@
+import { isFinancialEntry } from "../lib/finance";
 import { Alert } from "../lib/alerts";
 import React, { useMemo, useState } from "react";
 import { View } from "react-native";
@@ -140,6 +141,7 @@ export function Records() {
   const list = s.records
     .filter(
       (e) =>
+        !isFinancialEntry(e) &&
         e.month_key === active &&
         (owner === "all" || e.userId === user.id) &&
         `${e.work_name} ${e.work_type} ${e.chapter} ${s.members.find((m) => m.id === e.userId)?.name || e.username}`

@@ -1,3 +1,4 @@
+import { InstallApp } from "../components/InstallApp";
 import { Alert } from "../lib/alerts";
 import React, { useState } from "react";
 import { View, StyleSheet, ScrollView } from "react-native";
@@ -98,6 +99,7 @@ export function Login() {
             {error ? (
               <Label style={{ color: colors.red }}>{error}</Label>
             ) : null}
+            <InstallApp />
             <View style={{ width: "100%", gap: 10 }}>
               <Label dim size={11} style={{ textAlign: "center" }}>
                 تستخدم هذه النسخة بيانات الفريق الحقيقية فقط.

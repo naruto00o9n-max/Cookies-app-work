@@ -1,3 +1,5 @@
+import { useScreenGuide } from "../lib/use-guide";
+import { isFinancialEntry } from "../lib/finance";
 import { GlassDialogHost } from "../components/GlassDialogHost";
 import { RegistrationSelectionSheet } from "../components/RegistrationSelectionSheet";
 import { useRegistrationPreferences } from "../lib/use-registration-preferences";
@@ -15,7 +17,7 @@ import {
   View,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useIsFocused } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTeam } from "../lib/context";
 import { Alert } from "../lib/alerts";
@@ -745,6 +747,9 @@ export function ControlSection({ route }: { route: any }) {
   const [title, setTitle] = useState("");
   const [blocked, setBlocked] = useState(false);
   const [editedRecord, setEditedRecord] = useState<Entry | null>(null);
+  const focused = useIsFocused();
+  useScreenGuide("edit-record", focused && Boolean(editedRecord));
+  useScreenGuide("member-manage", focused && Boolean(managedMember));
   const [edit, setEdit] = useState({
     userId: "",
     work: "",
@@ -752,11 +757,6 @@ export function ControlSection({ route }: { route: any }) {
     types: "",
     notes: "",
   });
-  const [adjustment, setAdjustment] = useState(false);
-  const [paymentMember, setPaymentMember] = useState(user?.id || "");
-  const [paymentKind, setPaymentKind] = useState("مكافأة");
-  const [amount, setAmount] = useState("");
-  const [reason, setReason] = useState("");
   const members = useMemo<AdminMember[]>(() => {
     const byId = new Map(
       (s?.members || []).map((member) => [member.id, member as AdminMember]),
@@ -771,6 +771,7 @@ export function ControlSection({ route }: { route: any }) {
       (s?.records || [])
         .filter(
           (entry) =>
+            !isFinancialEntry(entry) &&
             (!month || entry.month_key === month) &&
             (!recordMember || entry.userId === recordMember) &&
             (!recordWork || entry.work_name === recordWork) &&
@@ -989,7 +990,9 @@ export function ControlSection({ route }: { route: any }) {
                   : undefined
               }
             >
-              <Label size={14}>{entry.work_name}</Label>
+              <Label size={14}>
+                {adjustmentEntry ? "حركة مالية" : entry.work_name}
+              </Label>
             </Pressable>
             <Label size={12} style={{ color: colors.gold }}>
               {adjustmentEntry
@@ -1413,7 +1416,11 @@ export function ControlSection({ route }: { route: any }) {
                     items={[
                       { label: "كل التخصصات", value: "" },
                       ...[
-                        ...new Set(s.records.map((entry) => entry.work_type)),
+                        ...new Set(
+                          s.records
+                            .filter((entry) => !isFinancialEntry(entry))
+                            .map((entry) => entry.work_type),
+                        ),
                       ].map((type) => ({
                         label: type.replace(/_/g, " "),
                         value: type,
@@ -1484,7 +1491,7 @@ export function ControlSection({ route }: { route: any }) {
               <Button
                 title="إضافة مكافأة أو خصم لعضو"
                 icon="gift-outline"
-                onPress={() => setAdjustment(true)}
+                onPress={() => nav.navigate("Adjustment")}
                 disabled={offline}
               />
               <Button
@@ -2121,84 +2128,6 @@ export function ControlSection({ route }: { route: any }) {
             />
           </>
         )}
-      </Sheet>
-
-      <Sheet
-        visible={adjustment}
-        title="مكافأة أو خصم"
-        onClose={() => {
-          if (!busy) setAdjustment(false);
-        }}
-      >
-        <Picker
-          label="العضو"
-          value={paymentMember}
-          items={memberItems}
-          onChange={setPaymentMember}
-        />
-        <Chips
-          value={paymentKind}
-          onSelect={setPaymentKind}
-          items={[
-            { label: "مكافأة", value: "مكافأة" },
-            { label: "خصم", value: "خصم" },
-          ]}
-        />
-        <Field
-          label={`المبلغ (${s.settings.currency})`}
-          value={amount}
-          onChange={setAmount}
-          number
-        />
-        <Field
-          label="السبب أو الملاحظة"
-          value={reason}
-          onChange={setReason}
-          multiline
-        />
-        <Notice text="تُحفظ العملية في الشهر النشط وتظهر في مستحقات العضو وسجل الإدارة." />
-        <Button
-          title={busy ? "جارٍ الحفظ…" : `إضافة ${paymentKind}`}
-          icon="checkmark-outline"
-          danger={paymentKind === "خصم"}
-          disabled={busy || offline || !paymentMember || !amount}
-          onPress={() => {
-            const normalized = amount
-              .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
-              .replace("٫", ".");
-            const value = Number(normalized);
-            if (!Number.isFinite(value) || value <= 0) {
-              Alert.alert("راجع المبلغ", "أدخل مبلغًا موجبًا صالحًا.");
-              return;
-            }
-            Alert.alert(
-              `تأكيد ${paymentKind}`,
-              `${members.find((member) => member.id === paymentMember)?.name || "العضو"}\n${money(s, value)} ${paymentKind === "خصم" ? "ستُخصم من" : "ستُضاف إلى"} المستحقات.`,
-              [
-                { text: "إلغاء", style: "cancel" },
-                {
-                  text: "تأكيد",
-                  style: paymentKind === "خصم" ? "destructive" : "default",
-                  onPress: () =>
-                    void run(async () => {
-                      await execute({
-                        action: "adjustment",
-                        payload: {
-                          userId: paymentMember,
-                          kind: paymentKind,
-                          amount: value,
-                          notes: reason,
-                        },
-                      });
-                      setAdjustment(false);
-                      setAmount("");
-                      setReason("");
-                    }, "تم حفظ العملية المالية."),
-                },
-              ],
-            );
-          }}
-        />
       </Sheet>
     </>
   );

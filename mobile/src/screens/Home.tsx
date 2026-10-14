@@ -1,3 +1,4 @@
+import { isFinancialEntry } from "../lib/finance";
 import React, { useState } from "react";
 import { View, Pressable, Text } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -26,7 +27,8 @@ export function Home() {
   const own = visibleEntries(s, user.id),
     total = totalOf(own),
     month = s.months.find((m) => m.key === s.settings.active_month),
-    recent = [...own]
+    recent = own
+      .filter((e) => !isFinancialEntry(e))
       .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
       .slice(0, 4);
   const ranking = s.members

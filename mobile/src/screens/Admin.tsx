@@ -1,4 +1,5 @@
 import { WorkPicker } from "../components/WorkPicker";
+import { Adjustment } from "./Finance";
 import { Alert } from "../lib/alerts";
 import React, { useState } from "react";
 import { View, Switch } from "react-native";
@@ -127,6 +128,7 @@ export function AdminForm({ route }: { route: any }) {
         <Empty title="هذه الصفحة للمشرفين" />
       </Page>
     );
+  if (kind === "adjustment") return <Adjustment route={route} />;
   const set = (key: string, value: string) =>
     setValues((old) => ({ ...old, [key]: value }));
   const titles: Record<string, string> = {

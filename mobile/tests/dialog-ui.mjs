@@ -9,7 +9,7 @@ for (const viewport of [
   { width: 768, height: 1024 },
   { width: 390, height: 844 },
 ]) {
-  const page = await browser.newPage({ viewport });
+  const page = await browser.newPage({ viewport, serviceWorkers: "block" });
   const errors = [],
     commands = [];
   let fail = false;
@@ -43,10 +43,24 @@ for (const viewport of [
     },
     audit: [],
   };
-  await page.addInitScript(() =>
-    sessionStorage.setItem("cookies.token", "browser-test"),
-  );
-  await page.route("https://cookies-app-work.vercel.app/**", async (route) => {
+  await page.addInitScript(() => {
+    sessionStorage.setItem("cookies.token", "browser-test");
+    localStorage.setItem("cookies:notifications:prompt:test-admin", "later");
+    for (const id of [
+      "home",
+      "more",
+      "control",
+      "control-works",
+      "control-records",
+      "form-editWork",
+      "form-addWork",
+      "control-view-works",
+      "control-view-records",
+      "edit-record",
+    ])
+      localStorage.setItem(`cookies:guide:v1:test-admin:${id}`, "seen");
+  });
+  await page.route("**/api/**", async (route) => {
     const url = new URL(route.request().url());
     let body = {},
       status = 200;
@@ -86,7 +100,7 @@ for (const viewport of [
       body: JSON.stringify(body),
     });
   });
-  await page.goto("http://localhost:8081", {
+  await page.goto(process.env.BASE_URL || "http://localhost:3000/app/", {
     waitUntil: "networkidle",
     timeout: 120000,
   });

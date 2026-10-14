@@ -59,18 +59,23 @@ export function Label({
 export function Heading({
   children,
   size = 25,
+  style,
 }: {
   children: React.ReactNode;
   size?: number;
+  style?: React.ComponentProps<typeof Text>["style"];
 }) {
   return (
     <Text
-      style={{
-        fontFamily: "Cairo_700Bold",
-        fontSize: size,
-        color: colors.text,
-        textAlign: "right",
-      }}
+      style={[
+        {
+          fontFamily: "Cairo_700Bold",
+          fontSize: size,
+          color: colors.text,
+          textAlign: "right",
+        },
+        style,
+      ]}
     >
       {children}
     </Text>
@@ -124,12 +129,12 @@ export function Fade({ children }: { children: React.ReactNode }) {
         Animated.timing(opacity, {
           toValue: 1,
           duration: reduce ? 0 : 360,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== "web",
         }),
         Animated.timing(offset, {
           toValue: 0,
           duration: reduce ? 0 : 360,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== "web",
         }),
       ]).start();
     });
@@ -301,6 +306,7 @@ export function Row({
   detail,
   icon,
   onPress,
+  accessibilityLabel,
   right,
   danger = false,
   image,
@@ -310,6 +316,7 @@ export function Row({
   detail?: string;
   icon?: React.ComponentProps<typeof Ionicons>["name"];
   onPress?: () => void;
+  accessibilityLabel?: string;
   right?: string;
   danger?: boolean;
   image?: string;
@@ -318,6 +325,7 @@ export function Row({
   return (
     <Pressable
       accessibilityRole={onPress ? "button" : undefined}
+      accessibilityLabel={accessibilityLabel}
       onPress={onPress}
       style={({ pressed }) => [
         styles.row,

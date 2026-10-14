@@ -737,7 +737,7 @@ export function Detail({ route }: { route: any }) {
                     ? "remove-circle-outline"
                     : "gift-outline"
                 }
-                detail={`${memberName(membersById.get(entry.userId), entry.username)} · ${entry.work_name}`}
+                detail={`${memberName(membersById.get(entry.userId), entry.username)} · حركة مالية`}
                 right={money(entry.total)}
               />
               <Label dim size={10}>

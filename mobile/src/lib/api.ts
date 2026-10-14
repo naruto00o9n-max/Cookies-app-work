@@ -3,8 +3,12 @@ import * as WebBrowser from "expo-web-browser";
 import { Platform } from "react-native";
 import type { Identity, Snapshot } from "./types";
 WebBrowser.maybeCompleteAuthSession();
+export const WEB_SESSION = "cookies:web-cookie-session";
 export const server = (
-  process.env.EXPO_PUBLIC_API_URL || "https://cookies-app-work.vercel.app"
+  process.env.EXPO_PUBLIC_API_URL ||
+  (Platform.OS === "web" && typeof window !== "undefined"
+    ? window.location.origin
+    : "https://cookies-app-work.vercel.app")
 ).replace(/\/$/, "");
 export class ApiError extends Error {
   constructor(
@@ -20,7 +24,12 @@ export async function request<T>(
   body?: unknown,
 ): Promise<T> {
   if (!server) throw new Error("لم يتم ربط خدمة الفريق بعد");
-  if (!__DEV__ && !server.startsWith("https://"))
+  const secureWebOrigin =
+    Platform.OS === "web" &&
+    typeof window !== "undefined" &&
+    window.isSecureContext &&
+    server === window.location.origin;
+  if (!__DEV__ && !server.startsWith("https://") && !secureWebOrigin)
     throw new Error("رابط الخدمة يجب أن يستخدم HTTPS");
   let response: Response;
   try {
@@ -28,10 +37,13 @@ export async function request<T>(
       method: body === undefined ? "GET" : "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(token && token !== WEB_SESSION
+          ? { Authorization: `Bearer ${token}` }
+          : {}),
       },
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(20000),
+      ...(Platform.OS === "web" ? { credentials: "same-origin" as const } : {}),
     });
   } catch (e) {
     const timedOut =

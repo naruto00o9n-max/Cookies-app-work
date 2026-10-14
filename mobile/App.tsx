@@ -1,4 +1,7 @@
 import React from "react";
+import { useScreenGuide } from "./src/lib/use-guide";
+import { screenGuideId } from "./src/lib/guides";
+import { Finance, Adjustment } from "./src/screens/Finance";
 import { GlassDialogHost } from "./src/components/GlassDialogHost";
 import * as Notifications from "expo-notifications";
 import { NotificationCenter } from "./src/components/NotificationCenter";
@@ -55,7 +58,30 @@ const theme = {
 };
 function Main() {
   React.useEffect(() => {
-    if (Platform.OS === "web") return;
+    if (Platform.OS === "web") {
+      const url = new URL(window.location.href);
+      const work = url.searchParams.get("work"),
+        chapter = url.searchParams.get("chapter");
+      const openWeb = () => {
+        if (!notificationNav.isReady()) {
+          retry = setTimeout(openWeb, 300);
+          return;
+        }
+        if (work && work.length < 512)
+          notificationNav.navigate("Detail", { work, chapter });
+        else if (url.searchParams.get("screen") === "Reports")
+          notificationNav.navigate("Reports");
+        if (work || url.searchParams.has("screen")) {
+          url.searchParams.delete("work");
+          url.searchParams.delete("chapter");
+          url.searchParams.delete("screen");
+          window.history.replaceState(null, "", url.href);
+        }
+      };
+      let retry: ReturnType<typeof setTimeout>;
+      openWeb();
+      return () => clearTimeout(retry);
+    }
     let active = true;
     let lastId = "";
     const open = (response: Notifications.NotificationResponse | null) => {
@@ -131,7 +157,7 @@ function Main() {
         <Tabs.Screen
           key={t.name}
           name={t.name}
-          component={t.screen}
+          component={tabGuidedScreens[t.name]}
           options={{
             title: t.label,
             tabBarIcon: ({ color }) => (
@@ -143,9 +169,18 @@ function Main() {
     </Tabs.Navigator>
   );
 }
-function withScreenDialogs(Screen: React.ComponentType<any>) {
+function withScreenDialogs(Screen: React.ComponentType<any>, name: string) {
   return function ScreenWithDialogs(props: any) {
     const focused = useIsFocused();
+    useScreenGuide(
+      screenGuideId(name, props.route?.params),
+      focused,
+      name === "AdminForm"
+        ? `form-${props.route?.params?.kind}`
+        : name === "ControlSection"
+          ? `control-view-${props.route?.params?.section}`
+          : undefined,
+    );
     const update = React.useCallback(
       (visible: boolean) => {
         props.navigation.setOptions({
@@ -167,22 +202,38 @@ function withScreenDialogs(Screen: React.ComponentType<any>) {
   };
 }
 const dialogScreens = {
-  Main: withScreenDialogs(Main),
-  Register: withScreenDialogs(Register),
-  Detail: withScreenDialogs(Detail),
-  Control: withScreenDialogs(Control),
-  ControlSection: withScreenDialogs(ControlSection),
-  Reports: withScreenDialogs(Reports),
-  Specialties: withScreenDialogs(Specialties),
-  Months: withScreenDialogs(Months),
-  Audit: withScreenDialogs(Audit),
-  Help: withScreenDialogs(Help),
-  Diagnostics: withScreenDialogs(Diagnostics),
-  Azora: withScreenDialogs(Azora),
-  AzoraLink: withScreenDialogs(AzoraLink),
-  AzoraLinked: withScreenDialogs(AzoraLinked),
-  AzoraSettings: withScreenDialogs(AzoraSettings),
-  AdminForm: withScreenDialogs(AdminForm),
+  Main: withScreenDialogs(Main, "Main"),
+  Finance: withScreenDialogs(Finance, "Finance"),
+  Adjustment: withScreenDialogs(Adjustment, "Adjustment"),
+  Register: withScreenDialogs(Register, "Register"),
+  Detail: withScreenDialogs(Detail, "Detail"),
+  Control: withScreenDialogs(Control, "Control"),
+  ControlSection: withScreenDialogs(ControlSection, "ControlSection"),
+  Reports: withScreenDialogs(Reports, "Reports"),
+  Specialties: withScreenDialogs(Specialties, "Specialties"),
+  Months: withScreenDialogs(Months, "Months"),
+  Audit: withScreenDialogs(Audit, "Audit"),
+  Help: withScreenDialogs(Help, "Help"),
+  Diagnostics: withScreenDialogs(Diagnostics, "Diagnostics"),
+  Azora: withScreenDialogs(Azora, "Azora"),
+  AzoraLink: withScreenDialogs(AzoraLink, "AzoraLink"),
+  AzoraLinked: withScreenDialogs(AzoraLinked, "AzoraLinked"),
+  AzoraSettings: withScreenDialogs(AzoraSettings, "AzoraSettings"),
+  AdminForm: withScreenDialogs(AdminForm, "AdminForm"),
+};
+function withTabGuide(Screen: React.ComponentType<any>, id: string) {
+  return function GuidedTab(props: any) {
+    const focused = useIsFocused();
+    useScreenGuide(id, focused);
+    return <Screen {...props} />;
+  };
+}
+const tabGuidedScreens: Record<string, React.ComponentType<any>> = {
+  Home: withTabGuide(Home, "home"),
+  Works: withTabGuide(Works, "works"),
+  Records: withTabGuide(Records, "records"),
+  Team: withTabGuide(Team, "team"),
+  More: withTabGuide(More, "more"),
 };
 function Screens() {
   const { user, busy, snapshot } = useTeam();
@@ -219,6 +270,16 @@ function Screens() {
           name="Main"
           component={dialogScreens.Main}
           options={{ title: "COOKIES", headerTitleAlign: "center" }}
+        />
+        <Stack.Screen
+          name="Finance"
+          component={dialogScreens.Finance}
+          options={{ title: "المستحقات والحركات المالية" }}
+        />
+        <Stack.Screen
+          name="Adjustment"
+          component={dialogScreens.Adjustment}
+          options={{ title: "عملية مالية جديدة" }}
         />
         <Stack.Screen
           name="Register"

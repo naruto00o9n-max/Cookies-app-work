@@ -14,3 +14,4 @@ build/
 .cookies-build-cache/
 
 mobile/google-services.json
+dashboard/public/app/

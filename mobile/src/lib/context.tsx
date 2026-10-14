@@ -1,3 +1,4 @@
+import { presentationSnapshot } from "./finance";
 import React, {
   createContext,
   useContext,
@@ -8,11 +9,18 @@ import React, {
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { DEVICE_TOKEN_KEY } from "./notifications";
-import { AppState } from "react-native";
+import { AppState, Platform } from "react-native";
 import { uid } from "./domain";
 import { type Command } from "./commands";
 import { cache, readToken, saveToken, removeToken } from "./storage";
-import { ApiError, request, discordLogin, type StateResponse } from "./api";
+import {
+  ApiError,
+  request,
+  discordLogin,
+  WEB_SESSION,
+  server,
+  type StateResponse,
+} from "./api";
 import type { Identity, Snapshot } from "./types";
 type Model = {
   snapshot: Snapshot | null;
@@ -62,6 +70,7 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
           data.user.avatar,
         isAdmin: data.user.isAdmin,
       };
+      data.snapshot = presentationSnapshot(data.snapshot);
       setSnapshot(data.snapshot);
       setUser(identity);
       setOffline(false);
@@ -87,14 +96,35 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     mounted.current = true;
     (async () => {
-      const stored = await readToken();
+      let stored = await readToken();
+      if (Platform.OS === "web" && !stored) {
+        const session = await request<{ authenticated: boolean }>(
+          "/api/auth/me",
+        );
+        if (session.authenticated) {
+          stored = WEB_SESSION;
+          await saveToken(stored);
+        } else {
+          const authError = new URL(window.location.href).searchParams.get(
+            "auth",
+          );
+          if (authError)
+            setError(
+              authError === "notmember"
+                ? "حسابك ليس عضوًا في سيرفر الفريق"
+                : authError === "blocked"
+                  ? "تم إيقاف وصولك. تواصل مع المشرف"
+                  : "لم يكتمل تسجيل الدخول. حاول مجددًا.",
+            );
+        }
+      }
       token.current = stored;
       if (stored) {
         const raw = await cache.read();
         if (raw) {
           try {
             const v = JSON.parse(raw);
-            setSnapshot(v.snapshot);
+            setSnapshot(presentationSnapshot(v.snapshot));
             setUser(v.user);
           } catch {
             await cache.clear();
@@ -121,6 +151,10 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
     };
   }, [refresh]);
   const login = async () => {
+    if (Platform.OS === "web") {
+      window.location.assign(`${server}/api/auth/discord`);
+      return;
+    }
     setBusy(true);
     try {
       const data = await discordLogin();
@@ -135,13 +169,20 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
     device.current ||= await AsyncStorage.getItem(DEVICE_TOKEN_KEY);
     if (device.current && token.current) {
       try {
-        await request("/api/mobile/devices", token.current, {
-          token: device.current,
-          remove: true,
-        });
+        await request(
+          Platform.OS === "web"
+            ? "/api/mobile/web-devices"
+            : "/api/mobile/devices",
+          token.current,
+          Platform.OS === "web"
+            ? { subscription: JSON.parse(device.current), remove: true }
+            : { token: device.current, remove: true },
+        );
       } catch {}
     }
     device.current = null;
+    if (Platform.OS === "web")
+      await request("/api/auth/logout", token.current || WEB_SESSION, {});
     await AsyncStorage.removeItem(DEVICE_TOKEN_KEY);
     pending.current.clear();
     token.current = null;
@@ -189,6 +230,13 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
         "token" in body
       )
         device.current = String(body.token);
+      if (
+        path === "/api/mobile/web-devices" &&
+        body &&
+        typeof body === "object" &&
+        "subscription" in body
+      )
+        device.current = JSON.stringify(body.subscription);
       return result;
     },
     [],

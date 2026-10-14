@@ -11,6 +11,7 @@ export const DEVICE_TOKEN_KEY = "cookies:notifications:device";
 export const notificationProjectId = () =>
   Constants.expoConfig?.extra?.eas?.projectId || Constants.easConfig?.projectId;
 export const notificationBundleId = () => Application.applicationId;
+export const notificationPermission = () => Notifications.getPermissionsAsync();
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,

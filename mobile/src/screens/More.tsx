@@ -1,3 +1,4 @@
+import { InstallApp } from "../components/InstallApp";
 import { Alert } from "../lib/alerts";
 import React from "react";
 import Constants from "expo-constants";
@@ -57,6 +58,7 @@ export function More() {
   return (
     <Page>
       <View style={styles.stack}>
+        <InstallApp />
         <Glass gold>
           <Row
             title={user.name}
@@ -73,6 +75,13 @@ export function More() {
         </Glass>
         <Section title="مساحتك" />
         <Glass>
+          <Row
+            title="المستحقات والحركات المالية"
+            detail="صافي الرصيد والمكافآت والخصومات"
+            icon="wallet-outline"
+            onPress={() => nav.navigate("Finance")}
+          />
+          <View style={styles.divider} />
           <Row
             title="التقارير والإحصائيات"
             detail="الشهر الحالي وتقرير آخر 7 أيام"
@@ -117,9 +126,7 @@ export function More() {
               <Row
                 title="المكافآت والخصومات"
                 icon="gift-outline"
-                onPress={() =>
-                  nav.navigate("AdminForm", { kind: "adjustment" })
-                }
+                onPress={() => nav.navigate("Adjustment")}
               />
               <View style={styles.divider} />
               <Row
@@ -383,45 +390,7 @@ export function Audit() {
     </Page>
   );
 }
-export function Help() {
-  return (
-    <Page>
-      <View style={styles.stack}>
-        <Heading>ابدأ فصلًا جديدًا</Heading>
-        <Glass>
-          <Row
-            title="١. سجّل إنجازك"
-            detail="اختر العمل والتخصص والفصول. يدعم 1-5 و1،3،5 والتخصصات المختلطة."
-            icon="add-circle-outline"
-          />
-          <Row
-            title="٢. تابع مستحقاتك"
-            detail="الحساب يستخدم سعر العمل الخاص إن وجد، ويستثني الفصول المجانية والمعزولة."
-            icon="wallet-outline"
-          />
-          <Row
-            title="٣. تعاون مع فريقك"
-            detail="تابع الأعمال والترتيب والسجلات المشتركة، واسحب الشاشة للتحديث."
-            icon="people-outline"
-          />
-          <Row
-            title="٤. دون اتصال"
-            detail="يمكن عرض آخر نسخة محفوظة؛ الكتابة المشتركة تحتاج اتصالًا. تُعرض بيانات الفريق المحفوظة فقط."
-            icon="cloud-offline-outline"
-          />
-        </Glass>
-        <Glass>
-          <Heading size={18}>ما الذي تغير عن البوت؟</Heading>
-          <Label dim>
-            تسجيل = زر الإنجاز. أعمالي وشغل = السجلات وتفاصيل العضو. توب =
-            الفريق. تقرير الدفع = الإدارة. قنوات ديسكورد لا تتحكم في التطبيق؛
-            الصلاحيات تتحقق من حسابك.
-          </Label>
-        </Glass>
-      </View>
-    </Page>
-  );
-}
+export { GuideBook as Help } from "./GuideBook";
 export function Diagnostics() {
   const { snapshot: s, user, offline, error, refresh } = useTeam();
   const push = usePush();

@@ -7,11 +7,11 @@ import React, {
 } from "react";
 import { Platform, Linking, AppState } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Notifications from "expo-notifications";
 import { useTeam } from "../lib/context";
 import {
   enableNotifications,
   notificationProjectId,
+  notificationPermission,
   DEVICE_TOKEN_KEY,
 } from "../lib/notifications";
 import { pushStep } from "../lib/notification-registration";
@@ -47,7 +47,14 @@ export function NotificationCenter({
       const token = await enableNotifications();
       if (current.current.user?.id !== owner) return;
       await pushStep("server", Platform.OS, () =>
-        current.current.call("/api/mobile/devices", { token }),
+        current.current.call(
+          Platform.OS === "web"
+            ? "/api/mobile/web-devices"
+            : "/api/mobile/devices",
+          Platform.OS === "web"
+            ? { subscription: JSON.parse(token) }
+            : { token },
+        ),
       );
       if (current.current.user?.id !== owner) return;
       await AsyncStorage.setItem(DEVICE_TOKEN_KEY, token);
@@ -85,10 +92,10 @@ export function NotificationCenter({
     let alive = true;
     setEnabled(false);
     setError("");
-    if (!id || offline || Platform.OS === "web") return;
+    if (!id || offline) return;
     const key = `cookies:notifications:prompt:${id}`;
     const check = async () => {
-      const permission = await Notifications.getPermissionsAsync();
+      const permission = await notificationPermission();
       if (!alive) return;
       if (permission.granted && notificationProjectId()) {
         try {

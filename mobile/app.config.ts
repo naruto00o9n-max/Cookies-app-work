@@ -16,6 +16,7 @@ if (
   );
 export default {
   ...app.expo,
+  ...(process.env.COOKIES_WEB_BASE_URL ? { experiments: { baseUrl: process.env.COOKIES_WEB_BASE_URL } } : {}),
   android: {
     ...app.expo.android,
     ...(fs.existsSync(path.join(__dirname, "google-services.json"))

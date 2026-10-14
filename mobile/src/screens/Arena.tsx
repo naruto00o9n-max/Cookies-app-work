@@ -1,3 +1,4 @@
+import { FilterSelect } from "../components/FilterSelect";
 import React, { useMemo, useState } from "react";
 import { View, Pressable, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -25,7 +26,7 @@ export function Arena() {
   const nav = useNavigation<any>();
   const [query, setQuery] = useState(""),
     [sort, setSort] = useState("chapters"),
-    [period, setPeriod] = useState("month"),
+    [period, setPeriod] = useState(""),
     [specialty, setSpecialty] = useState("all"),
     [limit, setLimit] = useState(40);
   const ranked = useMemo(() => {
@@ -33,7 +34,7 @@ export function Arena() {
     const entries = visibleEntries(
       s,
       undefined,
-      period === "all" ? "" : s.settings.active_month,
+      period === "all" ? "" : period || s.settings.active_month,
     ).filter((e) => specialty === "all" || e.work_type === specialty);
     const grouped = new Map<string, typeof entries>();
     for (const e of entries) {
@@ -136,8 +137,11 @@ export function Arena() {
               <Label dim size={11}>
                 {period === "all"
                   ? "سجل الفريق عبر كل الشهور"
-                  : s.months.find((m) => m.key === s.settings.active_month)
-                      ?.name || s.settings.active_month}
+                  : s.months.find(
+                      (m) => m.key === (period || s.settings.active_month),
+                    )?.name ||
+                    period ||
+                    s.settings.active_month}
               </Label>
             </View>
             <View style={arena.emblem}>
@@ -157,39 +161,71 @@ export function Arena() {
             </Label>
           </View>
         </View>
-        <Chips
-          items={[
-            { label: "الشهر الحالي", value: "month" },
-            { label: "كل الشهور", value: "all" },
-          ]}
-          value={period}
-          onSelect={setPeriod}
-        />
-        <Chips
-          items={[
-            { label: "الفصول المختلفة", value: "chapters" },
-            { label: "الخبرة", value: "xp" },
-            { label: "الأعمال", value: "works" },
-            { label: "المستحقات", value: "amount" },
-          ]}
-          value={sort}
-          onSelect={setSort}
-        />
-        <Chips
-          items={[
-            { label: "كل التخصصات", value: "all" },
-            ...[
-              ...new Set([
-                ...Object.keys(s.specialties),
-                ...s.records
-                  .filter((e) => !["مكافأة", "خصم"].includes(e.work_type))
-                  .map((e) => e.work_type),
-              ]),
-            ].map((t) => ({ label: t.replace(/_/g, " "), value: t })),
-          ]}
-          value={specialty}
-          onSelect={setSpecialty}
-        />
+        <Glass style={{ gap: 22 }}>
+          <FilterSelect
+            label="الفترة"
+            hint="اختر شهرًا للمنافسة، أو اجمع إنجازات كل الشهور."
+            value={period}
+            onChange={setPeriod}
+            items={[
+              {
+                label: `الشهر الحالي · ${s.months.find((m) => m.key === s.settings.active_month)?.name || s.settings.active_month}`,
+                value: "",
+              },
+              ...s.months
+                .filter((m) => m.key !== s.settings.active_month)
+                .sort((a, b) => b.key.localeCompare(a.key))
+                .map((m) => ({ label: m.name, value: m.key })),
+              { label: "كل الشهور", value: "all" },
+            ]}
+          />
+          <FilterSelect
+            label="طريقة الترتيب"
+            hint="حدد ما الذي تريد مقارنة أعضاء الفريق به في الفترة المختارة."
+            value={sort}
+            onChange={setSort}
+            items={[
+              {
+                label: "الفصول",
+                value: "chapters",
+                detail:
+                  "الفصل يُحسب مرة لكل عمل، حتى لو نفّذ العضو عدة تخصصات.",
+              },
+              {
+                label: "الخبرة",
+                value: "xp",
+                detail: "10 نقاط لكل مساهمة مختلفة: عمل + فصل + تخصص.",
+              },
+              {
+                label: "الأعمال",
+                value: "works",
+                detail: "عدد الأعمال التي ساهم بها العضو.",
+              },
+              {
+                label: "المستحقات",
+                value: "amount",
+                detail: "صافي المبالغ بعد المكافآت والخصومات واستثناء المعزول.",
+              },
+            ]}
+          />
+          <FilterSelect
+            label="التخصص"
+            hint="اعرض كل المساهمات، أو قارن أعضاء تخصص محدد فقط."
+            value={specialty}
+            onChange={setSpecialty}
+            items={[
+              { label: "كل التخصصات", value: "all" },
+              ...[
+                ...new Set([
+                  ...Object.keys(s.specialties),
+                  ...s.records
+                    .filter((e) => !["مكافأة", "خصم"].includes(e.work_type))
+                    .map((e) => e.work_type),
+                ]),
+              ].map((t) => ({ label: t.replace(/_/g, " "), value: t })),
+            ]}
+          />
+        </Glass>
         {!!leaders.length && (
           <Glass style={{ padding: 14, paddingTop: 24 }}>
             <View
