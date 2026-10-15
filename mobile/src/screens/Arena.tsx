@@ -1,3 +1,4 @@
+import { WalkthroughFinish } from "../components/Coachmark";
 import { FilterSelect } from "../components/FilterSelect";
 import React, { useMemo, useState } from "react";
 import { View, Pressable, StyleSheet } from "react-native";
@@ -107,6 +108,7 @@ export function Arena() {
   return (
     <Page>
       <View style={styles.stack}>
+        <WalkthroughFinish />
         <View style={arena.banner}>
           <LinearGradient
             colors={["#252130", "#12131B", "#17140E"]}

@@ -1,13 +1,10 @@
 import type { AlertButton, AlertOptions } from "react-native";
-import type { GuideDefinition } from "./guides";
 export type GlassDialog = {
   id: number;
   title: string;
   message?: string;
   buttons: AlertButton[];
   options?: AlertOptions;
-  guide?: GuideDefinition;
-  onSeen?: () => void;
 };
 let nextId = 0;
 const queue: GlassDialog[] = [];
@@ -24,26 +21,6 @@ export function closeDialog(id: number) {
   queue.shift();
   listeners.forEach((l) => l());
   return true;
-}
-export function discardDialog(id: number) {
-  const index = queue.findIndex((dialog) => dialog.id === id);
-  if (index < 0) return false;
-  queue.splice(index, 1);
-  listeners.forEach((listener) => listener());
-  return true;
-}
-export function showGuide(guide: GuideDefinition, onSeen?: () => void) {
-  const id = ++nextId;
-  queue.push({
-    id,
-    title: guide.title,
-    buttons: [],
-    guide,
-    onSeen,
-    options: { cancelable: true },
-  });
-  listeners.forEach((listener) => listener());
-  return id;
 }
 export const Alert = {
   alert(

@@ -24,7 +24,6 @@ import {
   registerDialogHost,
 } from "../lib/alerts";
 import { Button, colors, Fade, Heading, Icon, Label, styles } from "./ui";
-import { GuideTour } from "./GuideTour";
 export function GlassDialogHost({
   children,
   active = true,
@@ -105,58 +104,47 @@ export function GlassDialogHost({
                 style={{ maxHeight: height * 0.8 }}
                 showsVerticalScrollIndicator={false}
               >
-                {dialog.guide ? (
-                  <GuideTour
-                    key={dialog.id}
-                    guide={dialog.guide}
-                    onSeen={dialog.onSeen}
-                    onClose={() => {
-                      closeDialog(dialog.id);
-                    }}
-                  />
-                ) : (
-                  <>
-                    <View style={design.emblem}>
-                      <Icon
-                        name={
-                          dialog.buttons.some((b) => b.style === "destructive")
-                            ? "shield-outline"
-                            : "sparkles-outline"
-                        }
-                        size={30}
-                      />
-                    </View>
-                    <Heading size={23}>{dialog.title}</Heading>
-                    {!!dialog.message && (
-                      <Label style={{ lineHeight: 27 }} dim>
-                        {dialog.message}
-                      </Label>
-                    )}
-                    <View style={styles.stack}>
-                      {dialog.buttons.map((button, index) => (
-                        <Button
-                          key={index}
-                          title={button.text || "حسنًا"}
-                          secondary={button.style === "cancel"}
-                          danger={button.style === "destructive"}
-                          onPress={() => {
-                            if (closeDialog(dialog.id)) button.onPress?.();
-                          }}
-                        />
-                      ))}
-                    </View>
-                    <Label
-                      size={9}
-                      style={{
-                        color: colors.gold,
-                        opacity: 0.55,
-                        letterSpacing: 4,
-                      }}
-                    >
-                      C O O K I E S
+                <>
+                  <View style={design.emblem}>
+                    <Icon
+                      name={
+                        dialog.buttons.some((b) => b.style === "destructive")
+                          ? "shield-outline"
+                          : "sparkles-outline"
+                      }
+                      size={30}
+                    />
+                  </View>
+                  <Heading size={23}>{dialog.title}</Heading>
+                  {!!dialog.message && (
+                    <Label style={{ lineHeight: 27 }} dim>
+                      {dialog.message}
                     </Label>
-                  </>
-                )}
+                  )}
+                  <View style={styles.stack}>
+                    {dialog.buttons.map((button, index) => (
+                      <Button
+                        key={index}
+                        title={button.text || "حسنًا"}
+                        secondary={button.style === "cancel"}
+                        danger={button.style === "destructive"}
+                        onPress={() => {
+                          if (closeDialog(dialog.id)) button.onPress?.();
+                        }}
+                      />
+                    ))}
+                  </View>
+                  <Label
+                    size={9}
+                    style={{
+                      color: colors.gold,
+                      opacity: 0.55,
+                      letterSpacing: 4,
+                    }}
+                  >
+                    C O O K I E S
+                  </Label>
+                </>
               </ScrollView>
             </Fade>
           </View>

@@ -1,11 +1,14 @@
 import React from "react";
-import { useScreenGuide } from "./src/lib/use-guide";
-import { screenGuideId } from "./src/lib/guides";
+import {
+  WalkthroughProvider,
+  useWalkthrough,
+} from "./src/lib/walkthrough-context";
+import { Coachmark } from "./src/components/Coachmark";
 import { Finance, Adjustment } from "./src/screens/Finance";
 import { GlassDialogHost } from "./src/components/GlassDialogHost";
 import * as Notifications from "expo-notifications";
 import { NotificationCenter } from "./src/components/NotificationCenter";
-import { View, ActivityIndicator, Platform } from "react-native";
+import { View, ActivityIndicator, Platform, Text } from "react-native";
 import {
   NavigationContainer,
   DarkTheme,
@@ -26,14 +29,7 @@ import { Login } from "./src/screens/Login";
 import { Home } from "./src/screens/Home";
 import { Register } from "./src/screens/Register";
 import { Works, Records, Team, Detail } from "./src/screens/Lists";
-import {
-  More,
-  Reports,
-  Months,
-  Audit,
-  Help,
-  Diagnostics,
-} from "./src/screens/More";
+import { More, Reports, Months, Audit, Diagnostics } from "./src/screens/More";
 import { Control, ControlSection } from "./src/screens/Control";
 import { Specialties, AdminForm } from "./src/screens/Admin";
 import {
@@ -57,6 +53,7 @@ const theme = {
   },
 };
 function Main() {
+  const walkthrough = useWalkthrough();
   React.useEffect(() => {
     if (Platform.OS === "web") {
       const url = new URL(window.location.href);
@@ -157,12 +154,38 @@ function Main() {
         <Tabs.Screen
           key={t.name}
           name={t.name}
-          component={tabGuidedScreens[t.name]}
+          component={t.screen}
+          listeners={{
+            tabPress: () => {
+              if (t.name === "Team") walkthrough.act("leaderboard-opened");
+            },
+          }}
           options={{
             title: t.label,
             tabBarIcon: ({ color }) => (
               <Icon name={t.icon as any} color={color} size={21} />
             ),
+            tabBarLabel:
+              t.name === "Team"
+                ? ({ color }) => (
+                    <Coachmark
+                      step="leaderboard"
+                      text="هنا التوب · اضغط الفريق"
+                      compact
+                    >
+                      <Text
+                        style={{
+                          fontFamily: "Cairo_500Medium",
+                          fontSize: 10,
+                          lineHeight: 22,
+                          color,
+                        }}
+                      >
+                        {t.label}
+                      </Text>
+                    </Coachmark>
+                  )
+                : t.label,
           }}
         />
       ))}
@@ -172,15 +195,6 @@ function Main() {
 function withScreenDialogs(Screen: React.ComponentType<any>, name: string) {
   return function ScreenWithDialogs(props: any) {
     const focused = useIsFocused();
-    useScreenGuide(
-      screenGuideId(name, props.route?.params),
-      focused,
-      name === "AdminForm"
-        ? `form-${props.route?.params?.kind}`
-        : name === "ControlSection"
-          ? `control-view-${props.route?.params?.section}`
-          : undefined,
-    );
     const update = React.useCallback(
       (visible: boolean) => {
         props.navigation.setOptions({
@@ -213,27 +227,12 @@ const dialogScreens = {
   Specialties: withScreenDialogs(Specialties, "Specialties"),
   Months: withScreenDialogs(Months, "Months"),
   Audit: withScreenDialogs(Audit, "Audit"),
-  Help: withScreenDialogs(Help, "Help"),
   Diagnostics: withScreenDialogs(Diagnostics, "Diagnostics"),
   Azora: withScreenDialogs(Azora, "Azora"),
   AzoraLink: withScreenDialogs(AzoraLink, "AzoraLink"),
   AzoraLinked: withScreenDialogs(AzoraLinked, "AzoraLinked"),
   AzoraSettings: withScreenDialogs(AzoraSettings, "AzoraSettings"),
   AdminForm: withScreenDialogs(AdminForm, "AdminForm"),
-};
-function withTabGuide(Screen: React.ComponentType<any>, id: string) {
-  return function GuidedTab(props: any) {
-    const focused = useIsFocused();
-    useScreenGuide(id, focused);
-    return <Screen {...props} />;
-  };
-}
-const tabGuidedScreens: Record<string, React.ComponentType<any>> = {
-  Home: withTabGuide(Home, "home"),
-  Works: withTabGuide(Works, "works"),
-  Records: withTabGuide(Records, "records"),
-  Team: withTabGuide(Team, "team"),
-  More: withTabGuide(More, "more"),
 };
 function Screens() {
   const { user, busy, snapshot } = useTeam();
@@ -322,11 +321,6 @@ function Screens() {
           options={{ title: "سجل الإدارة" }}
         />
         <Stack.Screen
-          name="Help"
-          component={dialogScreens.Help}
-          options={{ title: "دليل الاستخدام" }}
-        />
-        <Stack.Screen
           name="Diagnostics"
           component={dialogScreens.Diagnostics}
           options={{ title: "فحص الاتصال" }}
@@ -360,6 +354,14 @@ function Screens() {
     </NavigationContainer>
   );
 }
+function SessionScreens() {
+  const { user } = useTeam();
+  return (
+    <WalkthroughProvider key={user?.id || "guest"} owner={user?.id}>
+      <Screens />
+    </WalkthroughProvider>
+  );
+}
 export default function App() {
   const [loaded, error] = useFonts({ Cairo_500Medium, Cairo_700Bold });
   if (!loaded && !error)
@@ -381,7 +383,7 @@ export default function App() {
           <GlassDialogHost>
             <NotificationCenter>
               <StatusBar style="light" />
-              <Screens />
+              <SessionScreens />
             </NotificationCenter>
           </GlassDialogHost>
         </TeamProvider>

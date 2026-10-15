@@ -1,3 +1,5 @@
+import { Coachmark } from "../components/Coachmark";
+import { useWalkthrough } from "../lib/walkthrough-context";
 import { isFinancialEntry } from "../lib/finance";
 import React, { useState } from "react";
 import { View, Pressable, Text } from "react-native";
@@ -22,6 +24,7 @@ import {
 export function Home() {
   const { snapshot: s, user, refresh, offline } = useTeam();
   const nav = useNavigation<any>();
+  const walkthrough = useWalkthrough();
   const [refreshing, setRefreshing] = useState(false);
   if (!s || !user) return null;
   const own = visibleEntries(s, user.id),
@@ -131,65 +134,76 @@ export function Home() {
             </View>
           </View>
         </View>
-        <Button
-          title="سجّل فصلًا جديدًا"
-          icon="add-circle-outline"
-          onPress={() => nav.navigate("Register")}
-        />
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => nav.navigate("Detail", { member: user.id })}
-        >
-          <Glass gold style={{ gap: 13 }}>
-            <View style={[styles.row, { gap: 14 }]}>
+        <Coachmark step="start" text="من هنا تسجّل أول فصل لك">
+          <Button
+            title="سجّل فصلًا جديدًا"
+            icon="add-circle-outline"
+            onPress={() => {
+              walkthrough.act("registration-opened");
+              nav.navigate("Register");
+            }}
+          />
+        </Coachmark>
+        <Coachmark step="profile" text="هنا ملفك الشخصي · اضغط لعرض معلوماتك">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="ملفي الشخصي"
+            onPress={() => {
+              walkthrough.act("profile-opened");
+              nav.navigate("Detail", { member: user.id });
+            }}
+          >
+            <Glass gold style={{ gap: 13 }}>
+              <View style={[styles.row, { gap: 14 }]}>
+                <View
+                  style={[
+                    styles.iconBox,
+                    {
+                      width: 58,
+                      height: 58,
+                      borderRadius: 18,
+                      transform: [{ rotate: "-6deg" }],
+                    },
+                  ]}
+                >
+                  <Icon name="diamond-outline" size={29} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Label size={10} style={{ color: colors.gold }}>
+                    بطاقتك في كوكيز · {progress.tier}
+                  </Label>
+                  <Heading size={21}>{progress.title}</Heading>
+                  <Label dim size={11}>
+                    المستوى {progress.level} ·{" "}
+                    {progress.badges.filter((b) => b.earned).length} أوسمة ·{" "}
+                    {progress.chapters} فصل مختلف
+                  </Label>
+                </View>
+              </View>
               <View
-                style={[
-                  styles.iconBox,
-                  {
-                    width: 58,
-                    height: 58,
-                    borderRadius: 18,
-                    transform: [{ rotate: "-6deg" }],
-                  },
-                ]}
-              >
-                <Icon name="diamond-outline" size={29} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Label size={10} style={{ color: colors.gold }}>
-                  بطاقتك في كوكيز · {progress.tier}
-                </Label>
-                <Heading size={21}>{progress.title}</Heading>
-                <Label dim size={11}>
-                  المستوى {progress.level} ·{" "}
-                  {progress.badges.filter((b) => b.earned).length} أوسمة ·{" "}
-                  {progress.chapters} فصل مختلف
-                </Label>
-              </View>
-            </View>
-            <View
-              style={{
-                height: 6,
-                borderRadius: 6,
-                backgroundColor: "#302B22",
-                overflow: "hidden",
-              }}
-            >
-              <LinearGradient
-                colors={["#9B7133", colors.gold]}
                 style={{
                   height: 6,
-                  width: `${Math.max(1, progress.progress * 100)}%`,
                   borderRadius: 6,
+                  backgroundColor: "#302B22",
+                  overflow: "hidden",
                 }}
-              />
-            </View>
-            <Label dim size={10}>
-              {progress.xp} XP · {progress.nextLevelXp - progress.xp} XP للمستوى
-              التالي
-            </Label>
-          </Glass>
-        </Pressable>
+              >
+                <LinearGradient
+                  colors={["#9B7133", colors.gold]}
+                  style={{
+                    height: 6,
+                    width: `${Math.max(1, progress.progress * 100)}%`,
+                    borderRadius: 6,
+                  }}
+                />
+              </View>
+              <Label dim size={10}>
+                {progress.xp} XP · {progress.nextLevelXp - progress.xp} XP
+                للمستوى التالي
+              </Label>
+            </Glass>
+          </Pressable>
+        </Coachmark>
         {user.isAdmin && (
           <Button
             title="لوحة الإشراف"

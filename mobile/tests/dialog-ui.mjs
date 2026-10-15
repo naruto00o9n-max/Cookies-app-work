@@ -46,19 +46,7 @@ for (const viewport of [
   await page.addInitScript(() => {
     sessionStorage.setItem("cookies.token", "browser-test");
     localStorage.setItem("cookies:notifications:prompt:test-admin", "later");
-    for (const id of [
-      "home",
-      "more",
-      "control",
-      "control-works",
-      "control-records",
-      "form-editWork",
-      "form-addWork",
-      "control-view-works",
-      "control-view-records",
-      "edit-record",
-    ])
-      localStorage.setItem(`cookies:guide:v1:test-admin:${id}`, "seen");
+    localStorage.setItem("cookies:onboarding:v2:test-admin", "done");
   });
   await page.route("**/api/**", async (route) => {
     const url = new URL(route.request().url());

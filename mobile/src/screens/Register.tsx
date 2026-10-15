@@ -1,3 +1,5 @@
+import { Coachmark } from "../components/Coachmark";
+import { useWalkthrough } from "../lib/walkthrough-context";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -38,6 +40,7 @@ const pageSize = 12;
 export function Register({ route }: { route: any }) {
   const { snapshot: s, user, execute, offline } = useTeam();
   const nav = useNavigation<any>();
+  const walkthrough = useWalkthrough();
   const { preferences, ready, remember } = useRegistrationPreferences(
     user?.id || "",
   );
@@ -146,6 +149,7 @@ export function Register({ route }: { route: any }) {
   }, [maxPage]);
   if (!s || !user) return null;
   const chooseWork = (name: string) => {
+    walkthrough.act("work-selected");
     if (name === work) {
       remember(name);
       return;
@@ -157,10 +161,14 @@ export function Register({ route }: { route: any }) {
     remember(name);
   };
   const openSpecialties = (chapter: string | null = null) => {
+    if (chapterSelection.chapters.length && !chapterSelection.error)
+      walkthrough.act("chapter-entered");
     setSpecialtyChapter(chapter);
     setSheet("specialty");
   };
   const chooseSpecialty = (type: string) => {
+    if (chapterSelection.chapters.length && !chapterSelection.error)
+      walkthrough.act("specialty-selected");
     if (specialtyChapter !== null)
       setChoices((current) => ({ ...current, [specialtyChapter]: type }));
     else setDefaultType(type);
@@ -190,6 +198,7 @@ export function Register({ route }: { route: any }) {
           notes,
         },
       });
+      walkthrough.act("registration-succeeded");
       remember(work, defaultType || chapterTypes[0]);
       Alert.alert("تم تسجيل الفصول ✦", message, [
         { text: "تم", onPress: () => nav.goBack() },
@@ -327,35 +336,37 @@ export function Register({ route }: { route: any }) {
                   title="العمل"
                   detail="ابحث بالاسم أو اختر من آخر أعمالك."
                 />
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="اختيار العمل أو البحث عنه"
-                  onPress={() => setSheet("work")}
-                  style={registration.selector}
-                >
-                  {selected ? (
-                    <Media
-                      uri={selected.azora?.cover}
-                      name={selected.name}
-                      size={40}
-                      cover
-                    />
-                  ) : (
-                    <Icon name="search-outline" />
-                  )}
-                  <View style={{ flex: 1 }}>
-                    <Label>{selected?.name || "ابحث عن العمل"}</Label>
-                    {selected && (
-                      <Label dim size={11}>
-                        {selected.azora ? "أزورا متصلة" : "عمل الفريق"}
-                        {selected.paid_start != null
-                          ? ` · المستحق من الفصل ${selected.paid_start}`
-                          : ""}
-                      </Label>
+                <Coachmark step="work" text="اضغط واختر العمل الذي أنجزته">
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="اختيار العمل أو البحث عنه"
+                    onPress={() => setSheet("work")}
+                    style={registration.selector}
+                  >
+                    {selected ? (
+                      <Media
+                        uri={selected.azora?.cover}
+                        name={selected.name}
+                        size={40}
+                        cover
+                      />
+                    ) : (
+                      <Icon name="search-outline" />
                     )}
-                  </View>
-                  <Icon name="chevron-down" size={18} color={colors.muted} />
-                </Pressable>
+                    <View style={{ flex: 1 }}>
+                      <Label>{selected?.name || "ابحث عن العمل"}</Label>
+                      {selected && (
+                        <Label dim size={11}>
+                          {selected.azora ? "أزورا متصلة" : "عمل الفريق"}
+                          {selected.paid_start != null
+                            ? ` · المستحق من الفصل ${selected.paid_start}`
+                            : ""}
+                        </Label>
+                      )}
+                    </View>
+                    <Icon name="chevron-down" size={18} color={colors.muted} />
+                  </Pressable>
+                </Coachmark>
                 {!!recentWorks.length && (
                   <>
                     <Label dim size={11}>
@@ -416,13 +427,25 @@ export function Register({ route }: { route: any }) {
                       }}
                     />
                     {mode === "single" && (
-                      <Field
-                        label="رقم الفصل"
-                        value={single}
-                        onChange={setSingle}
-                        number
-                        placeholder="أدخل رقم الفصل"
-                      />
+                      <Coachmark
+                        step="chapter"
+                        text="اكتب رقم الفصل الذي أنجزته، ثم اختر تخصصك"
+                      >
+                        <Field
+                          label="رقم الفصل"
+                          value={single}
+                          onChange={setSingle}
+                          onEndEditing={() => {
+                            if (
+                              chapterSelection.chapters.length &&
+                              !chapterSelection.error
+                            )
+                              walkthrough.act("chapter-entered");
+                          }}
+                          number
+                          placeholder="أدخل رقم الفصل"
+                        />
+                      </Coachmark>
                     )}
                     {mode === "range" && (
                       <View
@@ -578,33 +601,38 @@ export function Register({ route }: { route: any }) {
                       </Label>
                     ) : (
                       <>
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel="اختيار التخصص أو البحث عنه"
-                          onPress={() => openSpecialties()}
-                          style={registration.selector}
+                        <Coachmark
+                          step="specialty"
+                          text="اضغط واختر تخصصك في هذا الفصل"
                         >
-                          <View style={styles.iconBox}>
-                            <Icon name="pricetag-outline" />
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Label>
-                              {defaultType
-                                ? specialtyName(defaultType)
-                                : "اختر التخصص الأساسي"}
-                            </Label>
-                            <Label dim size={11}>
-                              {defaultType && types.includes(defaultType)
-                                ? `${s.settings.currency} ${priceOf(s, selected, defaultType).toFixed(3)} لكل فصل`
-                                : "التخصصات الأخيرة تظهر أولًا في البحث"}
-                            </Label>
-                          </View>
-                          <Icon
-                            name="chevron-down"
-                            size={18}
-                            color={colors.muted}
-                          />
-                        </Pressable>
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel="اختيار التخصص أو البحث عنه"
+                            onPress={() => openSpecialties()}
+                            style={registration.selector}
+                          >
+                            <View style={styles.iconBox}>
+                              <Icon name="pricetag-outline" />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Label>
+                                {defaultType
+                                  ? specialtyName(defaultType)
+                                  : "اختر التخصص الأساسي"}
+                              </Label>
+                              <Label dim size={11}>
+                                {defaultType && types.includes(defaultType)
+                                  ? `${s.settings.currency} ${priceOf(s, selected, defaultType).toFixed(3)} لكل فصل`
+                                  : "التخصصات الأخيرة تظهر أولًا في البحث"}
+                              </Label>
+                            </View>
+                            <Icon
+                              name="chevron-down"
+                              size={18}
+                              color={colors.muted}
+                            />
+                          </Pressable>
+                        </Coachmark>
                         <Chips
                           items={[
                             { label: "تخصص واحد للجميع", value: "one" },
@@ -884,26 +912,31 @@ export function Register({ route }: { route: any }) {
                         : "المجاني والمسجل مسبقًا لا يضافان إلى المستحق."}
                     </Label>
                   </Glass>
-                  <Button
-                    title={
-                      busy
-                        ? "جارٍ تسجيل الفصول…"
-                        : chapterSelection.chapters.length > 1
-                          ? `تأكيد تسجيل ${readyCount} فصل`
-                          : "تأكيد تسجيل الفصل"
-                    }
-                    onPress={() => void save()}
-                    icon="checkmark-circle-outline"
-                    disabled={
-                      busy ||
-                      offline ||
-                      !selected ||
-                      !targetMember ||
-                      !readyCount ||
-                      !!remainingTypes ||
-                      !!chapterSelection.error
-                    }
-                  />
+                  <Coachmark
+                    step="save"
+                    text="راجع اختيارك ثم اضغط لتسجيل الفصل"
+                  >
+                    <Button
+                      title={
+                        busy
+                          ? "جارٍ تسجيل الفصول…"
+                          : chapterSelection.chapters.length > 1
+                            ? `تأكيد تسجيل ${readyCount} فصل`
+                            : "تأكيد تسجيل الفصل"
+                      }
+                      onPress={() => void save()}
+                      icon="checkmark-circle-outline"
+                      disabled={
+                        busy ||
+                        offline ||
+                        !selected ||
+                        !targetMember ||
+                        !readyCount ||
+                        !!remainingTypes ||
+                        !!chapterSelection.error
+                      }
+                    />
+                  </Coachmark>
                   {offline && (
                     <Label style={{ color: colors.red }}>
                       يمكنك تجهيز الفصول والتخصصات الآن؛ الحفظ متاح عند عودة

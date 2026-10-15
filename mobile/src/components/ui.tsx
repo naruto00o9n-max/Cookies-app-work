@@ -1,3 +1,4 @@
+import { WalkthroughScrollContext } from "../lib/walkthrough-context";
 import React, { useEffect, useRef, useState } from "react";
 import {
   View,
@@ -206,6 +207,7 @@ export function Field({
   placeholder,
   number = false,
   multiline = false,
+  onEndEditing,
 }: {
   label: string;
   value: string;
@@ -213,6 +215,7 @@ export function Field({
   placeholder?: string;
   number?: boolean;
   multiline?: boolean;
+  onEndEditing?: () => void;
 }) {
   return (
     <View style={{ gap: 6 }}>
@@ -221,6 +224,7 @@ export function Field({
         accessibilityLabel={label}
         value={value}
         onChangeText={onChange}
+        onBlur={onEndEditing}
         placeholder={placeholder}
         placeholderTextColor="#656875"
         keyboardType={number ? "decimal-pad" : "default"}
@@ -385,30 +389,40 @@ export function Page({
   onRefresh?: () => void;
   refreshing?: boolean;
 }) {
+  const scroll = useRef<ScrollView>(null);
+  const offset = useRef(0);
+  const scrollContext = React.useMemo(() => ({ view: scroll, offset }), []);
   return (
-    <ScrollView
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        onRefresh ? (
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.gold}
-          />
-        ) : undefined
-      }
-      contentContainerStyle={{
-        padding: 22,
-        paddingBottom: 110,
-        gap: 18,
-        maxWidth: 760,
-        width: "100%",
-        alignSelf: "center",
-      }}
-    >
-      <Fade>{children}</Fade>
-    </ScrollView>
+    <WalkthroughScrollContext.Provider value={scrollContext}>
+      <ScrollView
+        ref={scroll}
+        scrollEventThrottle={32}
+        onScroll={(event) => {
+          offset.current = event.nativeEvent.contentOffset.y;
+        }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          onRefresh ? (
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.gold}
+            />
+          ) : undefined
+        }
+        contentContainerStyle={{
+          padding: 22,
+          paddingBottom: 110,
+          gap: 18,
+          maxWidth: 760,
+          width: "100%",
+          alignSelf: "center",
+        }}
+      >
+        <Fade>{children}</Fade>
+      </ScrollView>
+    </WalkthroughScrollContext.Provider>
   );
 }
 export function Backdrop() {

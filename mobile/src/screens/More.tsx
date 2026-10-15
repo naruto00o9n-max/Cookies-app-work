@@ -1,3 +1,4 @@
+import { useWalkthrough } from "../lib/walkthrough-context";
 import { InstallApp } from "../components/InstallApp";
 import { Alert } from "../lib/alerts";
 import React from "react";
@@ -24,6 +25,7 @@ export function More() {
   const { snapshot: s, user, logout, execute, offline, call } = useTeam();
   const { enable, enabled, busy: pushBusy } = usePush();
   const nav = useNavigation<any>();
+  const walkthrough = useWalkthrough();
   if (!s || !user) return null;
   const backup = () => {
     void shareFile(
@@ -63,7 +65,10 @@ export function More() {
           <Row
             title={user.name}
             image={user.avatar}
-            onPress={() => nav.navigate("Detail", { member: user.id })}
+            onPress={() => {
+              walkthrough.act("profile-opened");
+              nav.navigate("Detail", { member: user.id });
+            }}
             detail={user.isAdmin ? "مشرف مساحة كوكيز" : "عضو فريق كوكيز"}
             icon="person-circle-outline"
           />
@@ -106,12 +111,6 @@ export function More() {
             onPress={() => {
               if (!pushBusy) void enable();
             }}
-          />
-          <View style={styles.divider} />
-          <Row
-            title="دليل الاستخدام"
-            icon="help-circle-outline"
-            onPress={() => nav.navigate("Help")}
           />
         </Glass>
         {user.isAdmin && (
@@ -390,7 +389,6 @@ export function Audit() {
     </Page>
   );
 }
-export { GuideBook as Help } from "./GuideBook";
 export function Diagnostics() {
   const { snapshot: s, user, offline, error, refresh } = useTeam();
   const push = usePush();

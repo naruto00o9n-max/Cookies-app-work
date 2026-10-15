@@ -1,6 +1,5 @@
 import { chromium } from "@playwright/test";
 import assert from "node:assert/strict";
-import { guides } from "../src/lib/guides.ts";
 const base = process.env.BASE_URL || "http://localhost:3001/app/";
 const browser = await chromium.launch({
   executablePath: "/usr/bin/chromium",
@@ -76,16 +75,12 @@ const snapshot = {
   },
   audit: [],
 };
-await page.addInitScript(
-  (ids) => {
-    if (sessionStorage.getItem("features-fixture-seeded")) return;
-    sessionStorage.setItem("features-fixture-seeded", "yes");
-    localStorage.setItem("cookies:notifications:prompt:test-admin", "later");
-    for (const id of ids)
-      localStorage.setItem(`cookies:guide:v1:test-admin:${id}`, "seen");
-  },
-  guides.map((g) => g.id),
-);
+await page.addInitScript(() => {
+  if (sessionStorage.getItem("features-fixture-seeded")) return;
+  sessionStorage.setItem("features-fixture-seeded", "yes");
+  localStorage.setItem("cookies:notifications:prompt:test-admin", "later");
+  localStorage.setItem("cookies:onboarding:v2:test-admin", "done");
+});
 await page.route("**/api/**", async (route) => {
   const url = new URL(route.request().url());
   headers.push({
@@ -220,34 +215,16 @@ await page
 assert.equal(commands[1].payload.kind, "مكافأة");
 await page.goto(base, { waitUntil: "networkidle" });
 await page.getByText("مساحتي", { exact: true }).click();
-await page.getByText("دليل الاستخدام", { exact: true }).click();
-await page
-  .getByLabel("ماذا تريد أن تتعلم؟", { exact: true })
-  .fill("مكافأة أم خصم");
-await page
-  .getByRole("button", { name: "تعلم مكافأة أم خصم؟", exact: true })
-  .click();
-await page.getByRole("button", { name: "التالي", exact: true }).click();
-await page.getByRole("button", { name: "التالي", exact: true }).click();
-await page.getByRole("button", { name: "فهمت، لنبدأ", exact: true }).click();
-// An unseen screen teaches once, then stays dismissed across reloads.
-await page.evaluate(() =>
-  localStorage.removeItem("cookies:guide:v1:test-admin:works"),
+assert.equal(
+  await page.getByText("دليل الاستخدام", { exact: true }).count(),
+  0,
 );
-await page.goto(base, { waitUntil: "networkidle" });
-await page.getByText("الأعمال", { exact: true }).click();
-await page.getByText("ابحث واختر", { exact: true }).waitFor();
-await page.screenshot({
-  path: "/workspace/cookies-artifacts/tutorial-ipad.png",
-  fullPage: true,
-});
-await page.getByRole("button", { name: "تخطي الشرح", exact: true }).click();
-await page.goto(base, { waitUntil: "networkidle" });
-await page.getByText("الأعمال", { exact: true }).click();
-await page.waitForTimeout(1100);
-assert.equal(await page.getByText("ابحث واختر", { exact: true }).count(), 0);
+assert.equal(
+  await page.getByRole("button", { name: "التالي", exact: true }).count(),
+  0,
+);
 assert.deepEqual(errors, []);
 console.log(
-  "Shared web app: cookie login, compact month/metric/specialty filters, separated legacy finance, explicit deduction/bonus confirmation and tutorial persistence passed.",
+  "Shared web app: cookie login, compact month/metric/specialty filters, separated legacy finance, explicit deduction/bonus confirmation and removed expanded guide passed.",
 );
 await browser.close();

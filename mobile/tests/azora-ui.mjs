@@ -43,14 +43,16 @@ const browser = await chromium.launch({
   headless: true,
   args: ["--no-sandbox"],
 });
-const page = await browser.newPage({ serviceWorkers: "block", viewport: { width: 768, height: 1024 } }),
+const page = await browser.newPage({
+    serviceWorkers: "block",
+    viewport: { width: 768, height: 1024 },
+  }),
   errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 await page.addInitScript(() => {
   sessionStorage.setItem("cookies.token", "browser-test");
   localStorage.setItem("cookies:notifications:prompt:test-admin", "later");
-  for (const id of ["home", "more", "azora", "azora-link"])
-    localStorage.setItem(`cookies:guide:v1:test-admin:${id}`, "seen");
+  localStorage.setItem("cookies:onboarding:v2:test-admin", "done");
 });
 await page.route("**/api/**", async (route) => {
   const url = new URL(route.request().url());

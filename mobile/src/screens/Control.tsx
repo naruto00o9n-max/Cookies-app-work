@@ -1,4 +1,3 @@
-import { useScreenGuide } from "../lib/use-guide";
 import { isFinancialEntry } from "../lib/finance";
 import { GlassDialogHost } from "../components/GlassDialogHost";
 import { RegistrationSelectionSheet } from "../components/RegistrationSelectionSheet";
@@ -17,7 +16,7 @@ import {
   View,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { useNavigation, useIsFocused } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTeam } from "../lib/context";
 import { Alert } from "../lib/alerts";
@@ -747,9 +746,6 @@ export function ControlSection({ route }: { route: any }) {
   const [title, setTitle] = useState("");
   const [blocked, setBlocked] = useState(false);
   const [editedRecord, setEditedRecord] = useState<Entry | null>(null);
-  const focused = useIsFocused();
-  useScreenGuide("edit-record", focused && Boolean(editedRecord));
-  useScreenGuide("member-manage", focused && Boolean(managedMember));
   const [edit, setEdit] = useState({
     userId: "",
     work: "",
@@ -1918,12 +1914,6 @@ export function ControlSection({ route }: { route: any }) {
                 secondary
                 icon="pulse-outline"
                 onPress={() => nav.navigate("Diagnostics")}
-              />
-              <Button
-                title="دليل إدارة الفريق"
-                secondary
-                icon="help-circle-outline"
-                onPress={() => nav.navigate("Help")}
               />
             </>
           )}
